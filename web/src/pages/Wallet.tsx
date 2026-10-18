@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MemberCard, ProgramLogo, formatMemberNumber } from '../components/MemberCard.tsx';
 import { Barcode } from '../components/Barcode.tsx';
-import { Field, Sheet, copyText, toast } from '../components/ui.tsx';
+import { ConfirmButton, Field, Sheet, copyText, toast } from '../components/ui.tsx';
 import { deleteMembership, moveMembership, saveMembership, useStore } from '../lib/store.ts';
 import { KIND_LABEL, PROGRAMS, PROGRAM_BY_ID, programOf, type Program, type ProgramKind } from '../lib/loyalty.ts';
 import type { Membership } from '../lib/types.ts';
@@ -109,9 +109,7 @@ export default function Wallet() {
               <button className="btn sm" onClick={() => moveMembership(showing.id, -1)}>↑ Move up</button>
               <button className="btn sm" onClick={() => moveMembership(showing.id, 1)}>↓ Move down</button>
             </div>
-            <button className="btn ghost danger sm" onClick={() => {
-              if (confirm('Delete this card from your wallet?')) { deleteMembership(showing.id); show(); toast('Card deleted'); }
-            }}>Delete card</button>
+            <ConfirmButton label="Delete card" confirmLabel="Tap again to delete this card" onConfirm={() => { deleteMembership(showing.id); show(); toast('Card deleted'); }} />
           </div>
         </Sheet>
       )}

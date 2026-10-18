@@ -6,6 +6,7 @@ import { addFlights, exportBackup, importBackup, saveSettings, useStore } from '
 import { getConfig, importCalendar, type ServerConfig } from '../lib/api.ts';
 import { statusSummary } from '../lib/loyalty.ts';
 import type { Cabin } from '../lib/types.ts';
+import { IS_ARTIFACT, capability } from '../lib/platform.ts';
 
 export default function Profile() {
   const { settings, flights, memberships } = useStore();
@@ -28,9 +29,16 @@ export default function Profile() {
     }
   };
 
-  const download = () => {
+  const download = async () => {
+    const filename = `my-travel-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    if (IS_ARTIFACT) {
+      const downloads = await capability<{ save(r: { filename: string; data: Blob }): Promise<unknown> }>('downloads');
+      if (!downloads) { toast('Saving files is not available here'); return; }
+      try { await downloads.save({ filename, data: exportBackup() }); } catch { /* the viewer declined */ }
+      return;
+    }
     const url = URL.createObjectURL(exportBackup());
-    const a = Object.assign(document.createElement('a'), { href: url, download: `my-travel-backup-${new Date().toISOString().slice(0, 10)}.json` });
+    const a = Object.assign(document.createElement('a'), { href: url, download: filename });
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -61,7 +69,7 @@ export default function Profile() {
         </p>
       </section>
 
-      <section className="section card stack">
+      {!IS_ARTIFACT && <section className="section card stack">
         <h2>Connected calendar</h2>
         {settings.calendarUrl ? (
           <>
@@ -74,11 +82,11 @@ export default function Profile() {
         ) : (
           <p className="small muted">Connect TripIt, Google Calendar or Outlook from <Link to="/add">Add → TripIt & calendars</Link> to pull in new trips with one tap.</p>
         )}
-      </section>
+      </section>}
 
       <section className="section card stack">
         <h2>Your data</h2>
-        <p className="small muted">{flights.length} flights and {memberships.length} cards are stored privately on this device. Download a backup to keep them safe or move them to a new phone.</p>
+        <p className="small muted">{flights.length} flights and {memberships.length} cards are stored privately {IS_ARTIFACT ? 'in your claude.ai account (only you can see them)' : 'on this device'}. Download a backup to keep a copy or move them elsewhere.</p>
         <div className="row">
           <button className="btn" onClick={download}>⬇ Download backup</button>
           <button className="btn" onClick={() => fileRef.current?.click()}>⬆ Restore backup</button>
@@ -98,8 +106,8 @@ export default function Profile() {
 
       <section className="section card stack">
         <h2>Services</h2>
-        <div className="spread small"><span>AI briefings, ticket & email reading</span><span className={`pill ${config?.claude ? 'good' : 'warn'}`}>{config ? (config.claude ? 'On' : 'Needs API key') : 'Offline'}</span></div>
-        <div className="spread small"><span>Live gates, delays & schedule lookup</span><span className={`pill ${config?.liveFlightStatus ? 'good' : 'warn'}`}>{config ? (config.liveFlightStatus ? 'On' : 'Optional key') : 'Offline'}</span></div>
+        <div className="spread small"><span>AI briefings, ticket & email reading</span><span className={`pill ${config?.claude ? 'good' : 'warn'}`}>{config ? (config.claude ? 'On' : IS_ARTIFACT ? 'Open on claude.ai' : 'Needs API key') : 'Offline'}</span></div>
+        <div className="spread small"><span>Live gates, delays & schedule lookup</span><span className={`pill ${config?.liveFlightStatus ? 'good' : 'warn'}`}>{IS_ARTIFACT ? 'Full app only' : config ? (config.liveFlightStatus ? 'On' : 'Optional key') : 'Offline'}</span></div>
         <p className="tiny faint">
           Airline logos from Aviasales/Google; airport data from OurAirports & OpenFlights; destination photos from Wikipedia; weather from Open-Meteo.
         </p>

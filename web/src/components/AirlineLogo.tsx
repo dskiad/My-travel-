@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { airlineColor, logoUrls } from '../lib/airlines.ts';
 import { airlineName } from '../lib/geo.ts';
+import { IS_ARTIFACT } from '../lib/platform.ts';
 
 /** Airline logo from public logo CDNs, falling back to a coloured monogram. */
 export function AirlineLogo({ code, size = '' }: { code: string; size?: '' | 'sm' | 'lg' }) {
-  const urls = logoUrls(code);
+  const urls = IS_ARTIFACT ? [] : logoUrls(code);
   const [i, setI] = useState(0);
   return (
     <span className={`logo ${size}`} title={airlineName(code)}>

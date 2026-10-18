@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { logoUrls } from '../lib/airlines.ts';
 import { programOf, type Program } from '../lib/loyalty.ts';
 import type { Membership } from '../lib/types.ts';
+import { IS_ARTIFACT } from '../lib/platform.ts';
 
 export function formatMemberNumber(n: string) {
   const clean = n.replace(/\s+/g, '');
@@ -9,6 +10,7 @@ export function formatMemberNumber(n: string) {
 }
 
 function programLogos(p: Program): string[] {
+  if (IS_ARTIFACT) return [];
   const urls = p.airlines?.length ? logoUrls(p.airlines[0]) : [];
   if (p.domain) urls.push(`https://www.google.com/s2/favicons?domain=${p.domain}&sz=128`);
   return urls;

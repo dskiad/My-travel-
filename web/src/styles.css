@@ -53,6 +53,24 @@
     color-scheme: dark;
   }
 }
+:root[data-theme='dark'] {
+  --bg: #070d1b;
+  --surface: #111a2e;
+  --surface-2: #18233b;
+  --text: #e9eef8;
+  --muted: #9aa8c2;
+  --faint: #6d7a94;
+  --border: #22304b;
+  --brand: #6d8cff;
+  --good: #4cd6a0;
+  --good-bg: #0f2e25;
+  --warn: #ffc266;
+  --warn-bg: #33250d;
+  --bad: #ff8a7a;
+  --bad-bg: #3a1714;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
 
 /* ============ Base ============ */
 * { box-sizing: border-box; }
@@ -82,7 +100,7 @@ button { font: inherit; color: inherit; }
 
 /* ============ Layout ============ */
 .app { min-height: 100dvh; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px); }
-.page { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+.page { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .page-header {
   padding: calc(env(safe-area-inset-top) + 20px) 0 16px;
   display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
@@ -150,7 +168,7 @@ textarea.input { min-height: 140px; resize: vertical; }
 /* ============ Bottom navigation ============ */
 .nav {
   position: fixed; inset: auto 0 0 0; z-index: 20; height: calc(var(--nav-h) + env(safe-area-inset-bottom));
-  padding: 8px 12px env(safe-area-inset-bottom); display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  padding: 8px max(12px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom) max(12px, env(safe-area-inset-left, 0px)); display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
   background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: saturate(1.6) blur(18px);
   -webkit-backdrop-filter: saturate(1.6) blur(18px); border-top: 1px solid var(--border);
 }
@@ -341,3 +359,10 @@ textarea.input { min-height: 140px; resize: vertical; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 .chips .member-card .mc-number { font-size: 1.1rem; }
+
+/* Startup and the claude.ai page frame (which already pads for the phone's bars) */
+.splash { min-height: 70vh; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--muted); font-weight: 600; }
+.splash-mark { font-size: 2rem; animation: fly 1.4s ease-in-out infinite alternate; }
+@keyframes fly { to { transform: translate(14px, -6px) rotate(-8deg); } }
+.artifact .hero { padding-top: 22px; }
+.artifact .page-header { padding-top: 20px; }

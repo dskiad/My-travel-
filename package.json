@@ -10,7 +10,8 @@
     "typecheck": "tsc",
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --test test/*.test.js test/*.test.ts",
-    "build:data": "node scripts/build-data.mjs"
+    "build:data": "node scripts/build-data.mjs",
+    "build:artifact": "node scripts/build-artifact.mjs"
   },
   "repository": {
     "type": "git",

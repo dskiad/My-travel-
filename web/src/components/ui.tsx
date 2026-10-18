@@ -43,6 +43,23 @@ export async function copyText(text: string, label = 'Copied') {
   }
 }
 
+/** Two-tap confirmation inside the page (browser confirm dialogs are not always available). */
+export function ConfirmButton({ label, confirmLabel = 'Tap again to confirm', onConfirm, className = 'btn ghost danger sm' }: {
+  label: string; confirmLabel?: string; onConfirm: () => void; className?: string;
+}) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  return (
+    <button type="button" className={className} onClick={() => (armed ? onConfirm() : setArmed(true))}>
+      {armed ? confirmLabel : label}
+    </button>
+  );
+}
+
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="field">{label}{children}</label>;
 }

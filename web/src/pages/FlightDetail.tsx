@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FlightCard } from '../components/FlightCard.tsx';
 import { ProgramLogo, formatMemberNumber } from '../components/MemberCard.tsx';
-import { Field, Sheet, copyText, toast } from '../components/ui.tsx';
+import { ConfirmButton, Field, Sheet, copyText, toast } from '../components/ui.tsx';
+import { IS_ARTIFACT } from '../lib/platform.ts';
 import { deleteFlight, updateFlight, useStore } from '../lib/store.ts';
 import { isPast } from '../lib/flights.ts';
 import { airport, airlineName, countryName, flagEmoji } from '../lib/geo.ts';
@@ -65,8 +66,8 @@ export default function FlightDetail() {
 
   // Auto-load once for upcoming flights; poll live status while the page is open.
   useEffect(() => {
-    if (flight && upcoming && !flight.briefing && !loading) loadBriefing(flight);
-    if (!flight || !upcoming) return;
+    if (flight && upcoming && !flight.briefing && !loading && !IS_ARTIFACT) loadBriefing(flight);
+    if (!flight || !upcoming || IS_ARTIFACT) return;
     const t = setInterval(async () => {
       try {
         const { status } = await getFlightStatus(flight);
@@ -143,7 +144,7 @@ export default function FlightDetail() {
 
         <div className="row">
           {upcoming && <button className="btn primary grow" onClick={() => loadBriefing(flight)} disabled={loading}>{loading ? 'Researching…' : b ? '↻ Refresh briefing' : 'Get travel briefing'}</button>}
-          {upcoming && 'Notification' in window && Notification.permission !== 'granted' && (
+          {upcoming && !IS_ARTIFACT && 'Notification' in window && Notification.permission !== 'granted' && (
             <button className="btn" onClick={() => Notification.requestPermission().then((p) => toast(p === 'granted' ? 'Alerts on for gate & delay changes' : 'Alerts not allowed'))}>🔔 Alerts</button>
           )}
           <button className="btn" onClick={() => setEditing(true)}>Edit</button>
@@ -174,6 +175,9 @@ function BriefingView({ briefing: b, passport }: { briefing: Briefing; passport:
   const visaClass = ({ no: 'good', yes: 'bad', conditional: 'warn' } as Record<string, string>)[String(e.visaRequired).toLowerCase()] || '';
   return (
     <>
+      {b.offline && (
+        <div className="notice warn small">Prepared by Claude from what it knows, without live web research or live flight data. Check gates, lounge hours and strike news with the airline and airport before you travel.</div>
+      )}
       <section className="card">
         <h2 style={{ marginBottom: 8 }}>🛋️ Lounges near your gate</h2>
         {b.lounges?.length ? b.lounges.map((l, i) => (
@@ -258,7 +262,7 @@ function EditFlight({ flight, onClose, onDelete }: { flight: Flight; onClose: ()
         </div>
         <Field label="Diary notes"><textarea className="input" value={f.notes || ''} onChange={(e) => set({ notes: e.target.value })} placeholder="Upgrade! Window view over the Alps…" style={{ minHeight: 90 }} /></Field>
         <button className="btn primary">Save</button>
-        <button type="button" className="btn ghost danger" onClick={() => confirm('Delete this flight from your diary?') && onDelete()}>Delete flight</button>
+        <ConfirmButton className="btn ghost danger" label="Delete flight" confirmLabel="Tap again to delete this flight" onConfirm={onDelete} />
         <p className="tiny faint">{countryName(airport(flight.from)?.country)} → {countryName(airport(flight.to)?.country)} · added from {flight.source}</p>
       </form>
     </Sheet>

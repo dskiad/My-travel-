@@ -92,4 +92,6 @@ export interface Briefing {
   tips: string[];
   sources: { title: string; url: string }[];
   generatedAt: string;
+  /** Prepared without live web research (claude.ai page version). */
+  offline?: boolean;
 }

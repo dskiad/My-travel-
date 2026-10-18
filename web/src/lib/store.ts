@@ -1,10 +1,12 @@
-// On-device storage (IndexedDB) for flights, memberships and settings, with a
-// tiny subscription model for React. Nothing leaves the device except the
-// requests the user triggers (briefing, live status, imports).
+// Storage for flights, memberships and settings, with a tiny subscription
+// model for React. In the full app everything stays on the device
+// (IndexedDB); on claude.ai it goes to the viewer's private page storage.
 import { useSyncExternalStore } from 'react';
 import { get, set } from 'idb-keyval';
 import type { Flight, FlightDraft, Membership, Settings } from './types.ts';
 import { flightKey, sortFlights } from './flights.ts';
+import { IS_ARTIFACT } from './platform.ts';
+import { connectCloud, type CloudStore } from './cloudStore.ts';
 
 export interface State {
   flights: Flight[];
@@ -23,7 +25,13 @@ function emit(next: Partial<State>) {
   listeners.forEach((l) => l());
 }
 
+let cloud: CloudStore | null = null;
+
 async function persist() {
+  if (cloud) {
+    cloud.save({ flights: state.flights, memberships: state.memberships, settings: state.settings });
+    return;
+  }
   try {
     await Promise.all([
       set('flights', state.flights),
@@ -36,6 +44,24 @@ async function persist() {
 }
 
 export async function initStore() {
+  if (IS_ARTIFACT) {
+    try {
+      cloud = await connectCloud();
+      if (cloud) {
+        const data = await cloud.load();
+        emit({
+          flights: sortFlights(data.flights),
+          memberships: data.memberships,
+          settings: { ...DEFAULT_SETTINGS, ...data.settings },
+          ready: true,
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn('Page storage unavailable, using this browser instead', err);
+      cloud = null;
+    }
+  }
   try {
     const [flights, memberships, settings] = await Promise.all([
       get<Flight[]>('flights'), get<Membership[]>('memberships'), get<Settings>('settings'),

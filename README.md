@@ -67,6 +67,14 @@ this repo and the `main` branch, and enter the keys above. Open the URL on
 your phone and use **Add to Home screen**. Camera scanning and notifications
 need HTTPS, which Render provides.
 
+### Publish as a claude.ai page
+
+`npm run build:artifact` packs the whole app into `dist-artifact/my-travel.html`,
+a single page that can be published on claude.ai. There, briefings and
+ticket reading use the viewer's own Claude account, and flights and cards are
+saved privately to their claude.ai account. Live gates and delays, calendar
+feeds, PDF tickets, airline logos, photos and weather need the full app.
+
 ## Development
 
 ```bash

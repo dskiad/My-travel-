@@ -7,7 +7,8 @@ import { Field, toast } from '../components/ui.tsx';
 import { addFlights, getState, saveSettings, useStore } from '../lib/store.ts';
 import { draftIsComplete, parseFlightCode } from '../lib/flights.ts';
 import { airlineName, airport } from '../lib/geo.ts';
-import { fileToBase64, importCalendar, importDocument, lookupFlight } from '../lib/api.ts';
+import { importCalendar, lookupFlight, readDocument } from '../lib/api.ts';
+import { IS_ARTIFACT } from '../lib/platform.ts';
 import { parseFlightCsv } from '../lib/importers/csv.ts';
 import { draftsFromBarcode, parsePkpass } from '../lib/importers/pkpass.ts';
 import type { Cabin, FlightDraft, FlightSource } from '../lib/types.ts';
@@ -16,7 +17,7 @@ type SourceId = 'number' | 'scan' | 'email' | 'calendar' | 'csv';
 
 const SOURCES: { id: SourceId; ico: string; title: string; text: string }[] = [
   { id: 'number', ico: '⌨️', title: 'Flight number', text: 'Type A3 600 + date, we fill in the rest' },
-  { id: 'scan', ico: '🎫', title: 'Boarding pass & tickets', text: 'Google/Apple Wallet, airline app, e-ticket PDF' },
+  { id: 'scan', ico: '🎫', title: 'Boarding pass & tickets', text: IS_ARTIFACT ? 'Google/Apple Wallet, airline app screenshots' : 'Google/Apple Wallet, airline app, e-ticket PDF' },
   { id: 'calendar', ico: '🗓️', title: 'TripIt & calendars', text: 'TripIt, Google, Outlook, Kayak — keeps syncing' },
   { id: 'email', ico: '✉️', title: 'Booking email', text: 'Paste any airline or agency confirmation' },
   { id: 'csv', ico: '📒', title: 'Flight logbook', text: 'Flighty, myFlightradar24, OpenFlights CSV' },
@@ -52,7 +53,7 @@ export default function AddFlight() {
         <div><div className="eyebrow">Add flights</div><h1>Bring your trips in</h1></div>
       </header>
       <div className="source-grid">
-        {SOURCES.map((s) => (
+        {SOURCES.filter((s) => !(IS_ARTIFACT && s.id === 'calendar')).map((s) => (
           <button key={s.id} className="source" aria-pressed={source === s.id} onClick={() => setSource(s.id)}
             style={s.id === 'number' ? { gridColumn: '1 / -1', minHeight: 0 } : undefined}>
             <span className="s-ico">{s.ico}</span><b>{s.title}</b><span>{s.text}</span>
@@ -176,12 +177,12 @@ function ByScan({ onFound }: { onFound: FoundFn }) {
         const raw = bitmap && await detectBarcode(bitmap);
         if (raw) return onFound(draftsFromBarcode(raw), 'boarding-pass');
         setBusy('Reading the pass with AI…');
-        const res = await importDocument({ imageBase64: await fileToBase64(file), mediaType: file.type });
+        const res = await readDocument({ file });
         return onFound(res.flights.map((f) => ({ ...f, source: 'document' })), 'document');
       }
       if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
         setBusy('Reading your e-ticket…');
-        const res = await importDocument({ pdfBase64: await fileToBase64(file) });
+        const res = await readDocument({ file });
         return onFound(res.flights, 'document');
       }
       throw new Error('Use a screenshot/photo, a PDF e-ticket or an Apple Wallet .pkpass file');
@@ -226,11 +227,11 @@ function ByScan({ onFound }: { onFound: FoundFn }) {
       >
         <span style={{ fontSize: '2rem' }}>📤</span>
         <b>{busy || 'Upload boarding pass, ticket or Wallet pass'}</b>
-        <span className="small muted">Screenshot · photo · PDF e-ticket · .pkpass</span>
+        <span className="small muted">{IS_ARTIFACT ? 'Screenshot · photo · .pkpass' : 'Screenshot · photo · PDF e-ticket · .pkpass'}</span>
         <input ref={input} type="file" hidden accept="image/*,application/pdf,.pdf,.pkpass,application/vnd.apple.pkpass"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); e.target.value = ''; }} />
       </div>
-      <button className="btn" onClick={scan} disabled={!!busy || scanning}>📷 Scan a barcode with the camera</button>
+      {!IS_ARTIFACT && <button className="btn" onClick={scan} disabled={!!busy || scanning}>📷 Scan a barcode with the camera</button>}
       <video ref={videoRef} playsInline muted hidden={!scanning} style={{ width: '100%', borderRadius: 16 }} />
       {error && <div className="notice error">{error}</div>}
       <How title="From Google Wallet">
@@ -301,7 +302,7 @@ function ByEmail({ onFound }: { onFound: FoundFn }) {
   const read = async () => {
     setBusy(true); setError('');
     try {
-      const res = await importDocument({ text });
+      const res = await readDocument({ text });
       onFound(res.flights, 'document');
     } catch (e) {
       setError((e as Error).message);
