@@ -43,8 +43,9 @@ cp .env.example .env     # add your ANTHROPIC_API_KEY (and AERODATABOX_API_KEY)
 npm start                # http://localhost:3000
 ```
 
-To use it on your phone, deploy it to any Node host (Render, Railway, Fly.io,
-a small VPS…) over HTTPS. Open it in Chrome or Safari and choose
+To use it on your phone, deploy it over HTTPS. The repo includes a
+`render.yaml` for one-click deployment on [Render](https://render.com)
+(New → Blueprint → pick this repo). Set `APP_PASSWORD` so only you can use it. Open it in Chrome or Safari and choose
 **Add to Home screen**. Camera scanning and notifications need HTTPS.
 The live barcode scanner works in Chrome on Android; on iPhone, upload a screenshot instead.
 

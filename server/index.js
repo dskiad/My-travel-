@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +9,20 @@ import { buildBriefing, extractBoardingPass, hasClaude, RefusalError } from './c
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.get('/healthz', (req, res) => res.send('ok'));
+
+// Optional password so a public deployment can't spend your API credits.
+// The browser asks once; any username works.
+if (process.env.APP_PASSWORD) {
+  const expected = Buffer.from(process.env.APP_PASSWORD);
+  app.use((req, res, next) => {
+    const [scheme, encoded = ''] = (req.headers.authorization || '').split(' ');
+    const password = Buffer.from(Buffer.from(encoded, 'base64').toString().split(':').slice(1).join(':'));
+    if (scheme === 'Basic' && password.length === expected.length && crypto.timingSafeEqual(password, expected)) return next();
+    res.set('WWW-Authenticate', 'Basic realm="My Travel"').status(401).send('Password required');
+  });
+}
+
 app.use(express.json({ limit: '12mb' }));
 app.use(express.static(path.join(here, '..', 'public')));
 
