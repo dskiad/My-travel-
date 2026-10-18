@@ -1,37 +1,47 @@
 # ✈️ My Travel
 
-A personal travel companion for your phone. Pick a flight from **TripIt**, by
-**airline + flight number + date**, or from your **boarding pass** (Google
-Wallet screenshot or barcode scan). You then get one screen with:
+Your flights, travel diary and membership cards in one place, with a live
+briefing for every trip: gate, nearest lounge, visa rules for your passport,
+strikes, and how to get into town.
 
-- **Local time** at the departure and arrival airports (live clocks)
-- **Terminal, gate, status and delays**, refreshed every 5 minutes, with
-  phone notifications when the gate, terminal, delay or status changes
-- **The nearest lounge you can use** for your airline/alliance, ranked by
-  walking distance from your gate, with hours and access rules
-- **Entry requirements for your passport** (Greek by default): visa,
-  ETA/ETIAS/ESTA, passport validity
-- **Strikes and disruptions** (airport, airline, air traffic control, local
-  transport) around your travel date
-- **Getting into the city** after landing: train/metro, bus, taxi rank and
-  Uber/Bolt pickup point, with journey time and price
-- Tips, plus the sources used
+**Trips:** your next flight as a boarding pass with a destination photo,
+countdown, weather and live gate/delay updates.
+**Add:** bring flights in from TripIt, calendars, Wallet passes, e-tickets,
+booking emails or a whole logbook. You don't type anything by hand.
+**Diary:** every flight you've taken, on a world map, with lifetime stats.
+**Wallet:** all your frequent-flyer, hotel, car-rental and lounge cards with
+scannable barcodes. Each flight shows which number to give at check-in.
+**Briefing:** lounges ranked by distance from your gate, entry requirements,
+strikes and disruptions, and train/taxi/Uber options into the city.
 
-The last briefing is kept on the phone, so it still opens at the airport with
-poor signal.
+Everything you add is stored privately on your phone (IndexedDB). Use
+*Profile → Download backup* to keep a copy or move it to a new phone.
 
-## Where the data comes from
+## Getting flight data in without typing
 
-| Need | Source |
-|---|---|
-| Your trips | TripIt private calendar feed (TripIt → Settings → Calendar Feeds → *Subscribe*). Paste the link once; it stays on your device. |
-| Boarding pass | The barcode on every pass (IATA BCBP standard) is read on the phone. If the barcode can't be scanned, Claude reads the screenshot. |
-| Terminal, gate, delays | [AeroDataBox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox) live flight data (optional; without it Claude looks these up). |
-| Lounges, visa, strikes, transport | Claude with live web search and page reading, checked against airport, airline, government and news sources. |
+We looked at every app and service a traveller might already use. These are
+the ones that can actually hand over flight data, and how My Travel connects
+to each one:
 
-> **About Google Wallet:** Google doesn't let other apps read passes stored in
-> Wallet. Open the pass in Wallet, take a screenshot and upload it in the
-> *Boarding pass* tab. This works for every airline.
+| Source | How it connects | Notes |
+|---|---|---|
+| **TripIt** | Private calendar feed (Settings → Calendar Feeds) | Re-sync any time from Profile. TripIt's official API needs a developer agreement with OAuth 1.0, so the feed is the practical route. |
+| **Google Calendar** (flights Gmail detects) | "Secret address in iCal format" | Gmail adds flights from airline emails automatically, so this covers most bookings with no extra app. |
+| **Outlook / Microsoft 365** | Published calendar ICS link | Same idea for Outlook users. |
+| **Kayak Trips, TripCase, Flighty calendar sync** | Their iCal / calendar-sync link | Any `.ics` or `webcal://` feed works. |
+| **Google Wallet** | Screenshot of the pass → upload | Google's Wallet API only lets *issuers* create passes. No app can read your Wallet, so a screenshot is the route: the barcode is decoded on the phone, or by AI if it can't be scanned. |
+| **Apple Wallet** | Share the pass → `.pkpass` file → upload | Read entirely on the device. |
+| **Airline apps / any boarding pass** | Camera scan or screenshot | Uses the IATA BCBP barcode that every boarding pass carries. |
+| **E-tickets & itineraries (PDF)** | Upload | AI reads every segment, including returns and connections. |
+| **Booking emails** (airlines, Booking.com, Expedia, eDreams, Kiwi.com…) | Paste the text | Any language. |
+| **Flighty** | CSV export → upload | ICAO airline codes are mapped automatically. |
+| **myFlightradar24** | Settings → Export → CSV → upload | |
+| **OpenFlights, JetLovers, spreadsheets** | CSV upload | Needs date, from and to columns; flight, airline, seat, class and times are picked up when present. |
+| **Flight number + date** | Type it | Route, times and aircraft are filled in from live schedules (AeroDataBox). |
+
+Not possible today: reading Google Wallet directly (no API for this), App in
+the Air (shut down in September 2024), and AwardWallet's loyalty APIs
+(available only to business partners).
 
 ## Run it
 
@@ -39,35 +49,53 @@ Requires Node.js 22+.
 
 ```bash
 npm install
-cp .env.example .env     # add your ANTHROPIC_API_KEY (and AERODATABOX_API_KEY)
+cp .env.example .env     # add ANTHROPIC_API_KEY (and AERODATABOX_API_KEY)
+npm run build            # build the web app
 npm start                # http://localhost:3000
 ```
 
-To use it on your phone, deploy it over HTTPS. The repo includes a
-`render.yaml` for one-click deployment on [Render](https://render.com)
-(New → Blueprint → pick this repo). Set `APP_PASSWORD` so only you can use it. Open it in Chrome or Safari and choose
-**Add to Home screen**. Camera scanning and notifications need HTTPS.
-The live barcode scanner works in Chrome on Android; on iPhone, upload a screenshot instead.
+| Key | Needed for |
+|---|---|
+| `ANTHROPIC_API_KEY` | Travel briefings, and reading e-tickets, screenshots and emails |
+| `AERODATABOX_API_KEY` (optional) | Live gates, delays, belt, and auto-filling flights from a number |
+| `APP_PASSWORD` (recommended when public) | Asks for a password before anyone can use your deployment |
 
-Set your passport, usual cabin and frequent-flyer status under ⚙️ so lounge
-access and entry rules match you.
+### Deploy on Render
+
+The repo includes `render.yaml`. In Render, choose **New → Blueprint**, pick
+this repo and the `main` branch, and enter the keys above. Open the URL on
+your phone and use **Add to Home screen**. Camera scanning and notifications
+need HTTPS, which Render provides.
 
 ## Development
 
 ```bash
-npm run dev   # auto-restart on changes
-npm test      # parser tests (TripIt feed, boarding-pass barcode)
+npm run dev       # API server with auto-restart (port 3000)
+npm run dev:web   # web app with hot reload (port 5173, proxies /api)
+npm run typecheck
+npm test          # importers, calendar parsing, boarding passes, diary maths, loyalty matching
+npm run build:data  # refresh the airport/airline datasets
 ```
 
 ```
-server/
-  index.js         API routes + static hosting
-  tripit.js        TripIt iCal feed → trips and flights
-  bcbp.js          IATA boarding-pass barcode parser
-  flightStatus.js  AeroDataBox live status (terminal, gate, delay)
-  claude.js        Claude: briefing research + boarding-pass image reading
-public/            Installable phone web app (no build step)
-test/              node:test unit tests
+server/                 Node + Express API
+  calendar.js           iCalendar feeds → flights (TripIt, Google, Outlook…)
+  bcbp.js               IATA boarding-pass barcode parser (shared with the web app)
+  claude.js             AI: travel briefing (web search) and document reading
+  flightStatus.js       AeroDataBox live status and schedules
+web/                    React + TypeScript + Vite installable web app
+  src/pages/            Trips, Add, Diary, Flight, Wallet, Profile
+  src/lib/importers/    CSV logbooks, Apple Wallet passes
+  src/lib/loyalty.ts    55+ loyalty programmes with alliances and tiers
+  src/lib/airlines.ts   airline names, alliances, brand colours, logos
+  public/data/          airports (time zones, coordinates) and airlines
+scripts/build-data.mjs  regenerates public/data from open datasets
 ```
+
+Data and credits: airports from [OurAirports](https://ourairports.com/data/)
+(public domain) with time zones from [mwgg/Airports](https://github.com/mwgg/Airports)
+(MIT); airlines from [OpenFlights](https://openflights.org/data) (ODbL);
+airline logos from public logo CDNs; destination photos from Wikipedia;
+weather from [Open-Meteo](https://open-meteo.com).
 
 Gates can change at the last minute, so always confirm on the airport screens.
