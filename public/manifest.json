@@ -1,0 +1,10 @@
+{
+  "name": "My Travel",
+  "short_name": "My Travel",
+  "description": "Flight, gate, lounge, visa, strike and ground-transport briefing for your next trip.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b3d91",
+  "theme_color": "#0b3d91",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
