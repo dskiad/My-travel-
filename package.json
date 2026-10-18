@@ -1,0 +1,28 @@
+{
+  "name": "my-travel",
+  "version": "1.0.0",
+  "description": "Personal travel companion: TripIt / boarding pass flights, live gate & delays, nearest lounge, visa, strikes and ground transport.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node --watch --env-file-if-exists=.env server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dskiad/My-travel-.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dskiad/My-travel-/issues"
+  },
+  "homepage": "https://github.com/dskiad/My-travel-#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "express": "^5.3.0"
+  },
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
+}

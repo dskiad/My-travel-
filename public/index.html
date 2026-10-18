@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b3d91">
+  <title>My Travel</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>✈️ My Travel</h1>
+    <button id="settings-btn" class="icon-btn" aria-label="Settings">⚙️</button>
+  </header>
+
+  <main>
+    <section id="picker" class="card">
+      <h2>Which flight?</h2>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="tripit" aria-selected="true">TripIt</button>
+        <button role="tab" data-tab="manual">Flight number</button>
+        <button role="tab" data-tab="pass">Boarding pass</button>
+      </div>
+
+      <div class="tab-panel" data-panel="tripit">
+        <p class="hint">Paste your TripIt calendar feed link (TripIt → Settings → Calendar Feeds → Subscribe). It is saved on this device only.</p>
+        <label>TripIt feed URL<input id="tripit-url" type="url" placeholder="https://www.tripit.com/feed/ical/private/…/tripit.ics"></label>
+        <button id="tripit-load" class="primary">Load my trips</button>
+        <div id="trips"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="manual" hidden>
+        <form id="manual-form">
+          <div class="row">
+            <label>Flight<input name="flight" placeholder="A3 600" required autocapitalize="characters"></label>
+            <label>Date<input name="date" type="date" required></label>
+          </div>
+          <div class="row">
+            <label>From (optional)<input name="from" maxlength="3" placeholder="ATH" autocapitalize="characters"></label>
+            <label>To (optional)<input name="to" maxlength="3" placeholder="LHR" autocapitalize="characters"></label>
+          </div>
+          <button class="primary">Get my briefing</button>
+        </form>
+      </div>
+
+      <div class="tab-panel" data-panel="pass" hidden>
+        <p class="hint">From Google Wallet: open the pass and take a screenshot, then upload it here — or scan the barcode with your camera.</p>
+        <div class="row">
+          <label class="file-btn">📷 Upload screenshot<input id="pass-file" type="file" accept="image/*" hidden></label>
+          <button id="pass-scan" type="button">🔍 Scan barcode</button>
+        </div>
+        <video id="scanner" playsinline muted hidden></video>
+        <details>
+          <summary>Paste barcode text instead</summary>
+          <textarea id="pass-text" rows="3" placeholder="M1PAPADOPOULOS/GEORGE EABC123 ATHLHRA3 0600 293C002A0012 300"></textarea>
+          <button id="pass-parse" type="button">Read barcode text</button>
+        </details>
+      </div>
+      <p id="picker-status" class="status" role="status"></p>
+    </section>
+
+    <section id="dashboard" hidden>
+      <div class="card flight-head">
+        <div class="flight-title">
+          <span id="f-number" class="big"></span>
+          <span id="f-status" class="pill"></span>
+        </div>
+        <div id="f-route" class="route"></div>
+        <div class="clocks">
+          <div><small>Local time at <b id="c-from-code"></b></small><span id="c-from" class="clock">--:--</span></div>
+          <div><small>Local time at <b id="c-to-code"></b></small><span id="c-to" class="clock">--:--</span></div>
+        </div>
+        <div class="facts">
+          <div><small>Terminal</small><b id="f-terminal">–</b></div>
+          <div><small>Gate</small><b id="f-gate">–</b></div>
+          <div><small>Departs</small><b id="f-dep">–</b></div>
+          <div><small>Seat</small><b id="f-seat">–</b></div>
+        </div>
+        <div id="f-delay" class="alert" hidden></div>
+        <div class="row actions">
+          <button id="refresh" type="button">↻ Refresh</button>
+          <button id="notify" type="button">🔔 Alert me on changes</button>
+          <button id="change-flight" type="button">Change flight</button>
+        </div>
+        <p id="dash-status" class="status" role="status"></p>
+      </div>
+
+      <div class="card"><h2>🛋️ Nearest lounges</h2><div id="lounges" class="list"></div></div>
+      <div class="card"><h2>⚠️ Strikes &amp; disruptions</h2><div id="disruptions" class="list"></div></div>
+      <div class="card"><h2>🛂 Entry requirements <small id="passport-label"></small></h2><div id="entry"></div></div>
+      <div class="card"><h2>🚕 After landing: into the city</h2><div id="transport" class="list"></div></div>
+      <div class="card"><h2>💡 Tips</h2><ul id="tips"></ul></div>
+      <div class="card"><details><summary>Sources</summary><ul id="sources" class="sources"></ul></details>
+        <p class="hint" id="generated"></p></div>
+    </section>
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2>Settings</h2>
+      <label>Passport<input id="s-passport" placeholder="Greece"></label>
+      <label>Usual cabin
+        <select id="s-cabin">
+          <option value="">Use boarding pass / unknown</option>
+          <option>Economy</option><option>Premium Economy</option><option>Business</option><option>First</option>
+        </select>
+      </label>
+      <label>Frequent flyer status<input id="s-status" placeholder="e.g. Star Alliance Gold, Aegean Miles+Bonus Gold"></label>
+      <div class="row"><button value="cancel">Cancel</button><button id="s-save" class="primary" value="save">Save</button></div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
