@@ -21,47 +21,64 @@ function textOf(message) {
 }
 
 // ---------------------------------------------------------------------------
-// Boarding pass screenshot (e.g. from Google Wallet) → structured flight data
+// Tickets, boarding passes and confirmation emails → structured flights
 // ---------------------------------------------------------------------------
 
-const BOARDING_PASS_SCHEMA = {
+const str = (description) => ({ type: 'string', description });
+const FLIGHT_FIELDS = {
+  airline: str('IATA 2-character airline code of the operating/marketing carrier shown, e.g. A3'),
+  flightNumber: str('Digits only, e.g. 600'),
+  date: str('Local departure date YYYY-MM-DD'),
+  from: str('Departure IATA airport code'),
+  to: str('Arrival IATA airport code'),
+  depLocal: str('Local departure time HH:MM (24h), empty if not shown'),
+  arrLocal: str('Local arrival time HH:MM (24h), empty if not shown'),
+  seat: str('Seat, empty if not assigned'),
+  cabin: { type: 'string', enum: ['First', 'Business', 'Premium Economy', 'Economy', ''] },
+  pnr: str('Booking reference / PNR'),
+  aircraft: str('Aircraft type if shown'),
+};
+const DOCUMENT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['airline', 'flightNumber', 'date', 'from', 'to', 'passengerName', 'pnr', 'seat', 'cabin', 'boardingTime', 'gate', 'terminal', 'barcodeText'],
+  required: ['passengerName', 'flights'],
   properties: {
-    airline: { type: 'string', description: 'IATA 2-letter airline code, e.g. A3' },
-    flightNumber: { type: 'string', description: 'Digits only, e.g. 600' },
-    date: { type: 'string', description: 'Departure date YYYY-MM-DD, empty if unknown' },
-    from: { type: 'string', description: 'Departure IATA airport code' },
-    to: { type: 'string', description: 'Arrival IATA airport code' },
-    passengerName: { type: 'string' },
-    pnr: { type: 'string', description: 'Booking reference' },
-    seat: { type: 'string' },
-    cabin: { type: 'string', description: 'First, Business, Premium Economy or Economy' },
-    boardingTime: { type: 'string', description: 'HH:MM local, empty if not shown' },
-    gate: { type: 'string' },
-    terminal: { type: 'string' },
-    barcodeText: { type: 'string', description: 'Empty unless the raw BCBP text is legible' },
+    passengerName: str('Passenger name as printed, empty if not shown'),
+    flights: {
+      type: 'array',
+      items: { type: 'object', additionalProperties: false, required: Object.keys(FLIGHT_FIELDS), properties: FLIGHT_FIELDS },
+    },
   },
 };
 
-export async function extractBoardingPass({ imageBase64, mediaType }) {
+/**
+ * Read flights from a boarding pass (Google Wallet screenshot, airline app),
+ * e-ticket / itinerary PDF, or pasted confirmation email.
+ * @param {{ imageBase64?: string, mediaType?: string, pdfBase64?: string, text?: string }} input
+ */
+export async function extractFlights({ imageBase64, mediaType, pdfBase64, text }) {
+  const content = [];
+  if (imageBase64) content.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
+  if (pdfBase64) content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } });
+  if (text) content.push({ type: 'text', text: `<document>\n${text}\n</document>` });
+  content.push({
+    type: 'text',
+    text: `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email). List every flight segment in it, in travel order. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it. Use empty strings for anything not shown, and return an empty list if it contains no flights.`,
+  });
   const response = await getClient().beta.messages.create({
     model: MODEL,
-    max_tokens: 4000,
+    max_tokens: 8000,
     betas: [FALLBACK_BETA],
     fallbacks: 'default',
-    output_config: { effort: 'low', format: { type: 'json_schema', schema: BOARDING_PASS_SCHEMA } },
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
-        { type: 'text', text: `This is a boarding pass (possibly a Google Wallet or airline app screenshot). Extract the flight details. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year if the pass omits it. Use empty strings for anything not visible.` },
-      ],
-    }],
+    output_config: { effort: 'low', format: { type: 'json_schema', schema: DOCUMENT_SCHEMA } },
+    messages: [{ role: 'user', content }],
   });
-  if (response.stop_reason === 'refusal') throw new RefusalError('Could not read this image');
-  return JSON.parse(textOf(response));
+  if (response.stop_reason === 'refusal') throw new RefusalError('Could not read this document');
+  const result = JSON.parse(textOf(response));
+  result.flights = result.flights
+    .filter((f) => /^[A-Z0-9]{2}$/.test(f.airline) && /^\d{4}-\d{2}-\d{2}$/.test(f.date))
+    .map((f) => Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '')));
+  return result;
 }
 
 // ---------------------------------------------------------------------------

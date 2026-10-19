@@ -1,0 +1,16 @@
+{
+  "name": "My Travel",
+  "short_name": "My Travel",
+  "description": "Your flights, travel diary and membership cards in one place, with live gate, lounge, visa and strike information.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07122a",
+  "theme_color": "#0b1a36",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }],
+  "shortcuts": [
+    { "name": "Add a flight", "url": "/add" },
+    { "name": "Membership cards", "url": "/wallet" },
+    { "name": "Travel diary", "url": "/diary" }
+  ]
+}
