@@ -10,6 +10,14 @@ from the page's Share menu. This is the claude.ai version described under
 *Publish as a claude.ai page* below; the full app with live gates and calendar
 sync runs on your own deployment (see *Deploy on Render*).
 
+**▶ Run the full app on your own Render account:**
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/dskiad/My-travel-)
+
+Tap the button, sign in to Render with GitHub, paste your
+[Anthropic API key](https://console.anthropic.com) and choose a password, then
+tap **Apply**. Your app's address appears a few minutes later.
+
 **Trips:** your next flight as a boarding pass with a destination photo,
 countdown, weather and live gate/delay updates.
 **Add:** bring flights in from TripIt, calendars, Wallet passes, e-tickets,
@@ -68,8 +76,11 @@ npm start                # http://localhost:3000
 
 ### Deploy on Render
 
-The repo includes `render.yaml`. In Render, choose **New → Blueprint**, pick
-this repo and the `main` branch, and enter the keys above. Open the URL on
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/dskiad/My-travel-)
+
+The button sets everything up from the included `render.yaml`; you only enter
+the keys above. (By hand: in Render choose **New → Blueprint**, pick this repo
+and the `main` branch, and enter the same keys.) Open the URL on
 your phone and use **Add to Home screen**. Camera scanning and notifications
 need HTTPS, which Render provides.
 
