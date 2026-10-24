@@ -118,7 +118,15 @@ export function estimateMinutes(km: number): number {
   return km ? Math.round(30 + (km / 800) * 60) : 0;
 }
 
-/** Search airports by code, city or name; bigger airports first. */
+// Main airports of cities with several, so "London" suggests Heathrow first.
+const HUBS = new Set([
+  'LHR', 'CDG', 'FRA', 'AMS', 'MAD', 'BCN', 'FCO', 'MXP', 'MUC', 'IST', 'ATH', 'DXB', 'DOH', 'JFK', 'EWR',
+  'LAX', 'ORD', 'ATL', 'DFW', 'IAD', 'SFO', 'MIA', 'BOS', 'YYZ', 'YUL', 'GRU', 'GIG', 'EZE', 'MEX', 'NRT',
+  'HND', 'ICN', 'PEK', 'PVG', 'HKG', 'SIN', 'BKK', 'KUL', 'DEL', 'BOM', 'SYD', 'MEL', 'JNB', 'CAI', 'TLV',
+  'ZRH', 'VIE', 'CPH', 'ARN', 'OSL', 'HEL', 'LIS', 'DUB', 'BRU', 'WAW', 'PRG', 'BUD', 'OTP', 'SOF', 'SVO',
+]);
+
+/** Search airports by code, city or name; main and bigger airports first. */
 export function searchAirports(query: string, limit = 8): Airport[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -132,7 +140,7 @@ export function searchAirports(query: string, limit = 8): Airport[] {
     if (city.startsWith(q)) score = 30;
     else if (name.startsWith(q)) score = 20;
     else if (city.includes(q) || name.includes(q)) score = 10;
-    if (score) scored.push([score + a.size * 3, a]);
+    if (score) scored.push([score + a.size * 3 + (HUBS.has(a.iata) ? 5 : 0), a]);
   }
   scored.sort((x, y) => y[0] - x[0]);
   return [...(exact ? [exact] : []), ...scored.slice(0, limit).map(([, a]) => a)].slice(0, limit);

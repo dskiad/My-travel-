@@ -68,6 +68,7 @@ export async function getFlightStatus({ flight, date, from }) {
   const url = `https://${HOST}/flights/number/${encodeURIComponent(number)}/${date}?withAircraftImage=false&withLocation=false`;
   const res = await fetch(url, {
     headers: { 'X-RapidAPI-Key': process.env.AERODATABOX_API_KEY, 'X-RapidAPI-Host': HOST },
+    signal: AbortSignal.timeout(15_000),
   });
   if (res.status === 204 || res.status === 404) return null;
   if (!res.ok) throw new Error(`Flight status provider returned HTTP ${res.status}`);

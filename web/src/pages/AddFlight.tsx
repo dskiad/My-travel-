@@ -119,9 +119,15 @@ function ByNumber({ onFound }: { onFound: FoundFn }) {
 
 function DraftForm({ draft, note, onBack, onDone }: { draft: FlightDraft; note?: string; onBack: () => void; onDone: (d: FlightDraft) => void }) {
   const [d, setD] = useState(draft);
-  const set = (patch: Partial<FlightDraft>) => setD((x) => ({ ...x, ...patch }));
+  const [missing, setMissing] = useState('');
+  const set = (patch: Partial<FlightDraft>) => { setMissing(''); setD((x) => ({ ...x, ...patch })); };
+  const submit = () => {
+    const need = [!d.from && 'departure airport', !d.to && 'arrival airport'].filter(Boolean);
+    if (need.length) { setMissing(`Choose the ${need.join(' and ')} from the suggestions.`); return; }
+    if (draftIsComplete(d)) onDone(d);
+  };
   return (
-    <form className="stack" onSubmit={(e) => { e.preventDefault(); if (draftIsComplete(d)) onDone(d); }}>
+    <form className="stack" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <div className="row">
         <AirlineLogo code={d.airline} />
         <div className="grow"><b>{airlineName(d.airline)} {d.flightNumber}</b><div className="small muted">{formatDate(d.date, { dateStyle: 'full' } as Intl.DateTimeFormatOptions)}</div></div>
@@ -142,7 +148,8 @@ function DraftForm({ draft, note, onBack, onDone }: { draft: FlightDraft; note?:
         <Field label="Booking ref (PNR)"><input className="input code" value={d.pnr || ''} onChange={(e) => set({ pnr: e.target.value.toUpperCase() })} /></Field>
         <Field label="Aircraft"><input className="input" value={d.aircraft || ''} onChange={(e) => set({ aircraft: e.target.value })} placeholder="Airbus A321neo" /></Field>
       </div>
-      <button className="btn primary" disabled={!draftIsComplete(d)}>Save flight</button>
+      {missing && <div className="notice error small" role="alert">{missing}</div>}
+      <button className="btn primary">Save flight</button>
     </form>
   );
 }
