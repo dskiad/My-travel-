@@ -155,7 +155,11 @@ export async function fetchCalendar(feedUrl, maxBytes = 5_000_000) {
   let url = new URL(String(feedUrl).trim().replace(/^webcals?:/i, 'https:'));
   for (let hop = 0; hop < 4; hop++) {
     await assertPublicUrl(url);
-    const res = await fetch(url, { redirect: 'manual', headers: { 'User-Agent': 'MyTravelApp/2.0', Accept: 'text/calendar,*/*' } });
+    const res = await fetch(url, {
+      redirect: 'manual',
+      headers: { 'User-Agent': 'MyTravelApp/2.0', Accept: 'text/calendar,*/*' },
+      signal: AbortSignal.timeout(20_000),
+    });
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       url = new URL(res.headers.get('location'), url);
       continue;

@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { airport, flagEmoji, searchAirports } from '../lib/geo.ts';
 
 export function AirportInput({ value, onChange, placeholder }: { value: string; onChange: (iata: string) => void; placeholder?: string }) {
@@ -7,11 +7,23 @@ export function AirportInput({ value, onChange, placeholder }: { value: string; 
   const listId = useId();
   const results = useMemo(() => (open ? searchAirports(text, 6) : []), [text, open]);
   const known = airport(value);
+  const settleTimer = useRef<number>();
 
   const pick = (iata: string) => {
+    clearTimeout(settleTimer.current);
     onChange(iata);
     setText(iata);
     setOpen(false);
+  };
+
+  // Typing a city and moving on (without tapping a suggestion) picks the best match.
+  const settle = () => {
+    setOpen(false);
+    const q = text.trim();
+    if (!q || airport(value)?.iata === q.toUpperCase()) return;
+    const best = searchAirports(q, 1)[0];
+    if (best && q.length >= 3) pick(best.iata);
+    else onChange('');
   };
 
   return (
@@ -24,15 +36,16 @@ export function AirportInput({ value, onChange, placeholder }: { value: string; 
         aria-autocomplete="list"
         aria-controls={listId}
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => { settleTimer.current = window.setTimeout(settle, 150); }}
         onChange={(e) => {
           const v = e.target.value;
           setText(v);
           setOpen(true);
-          if (airport(v)) onChange(v.toUpperCase());
+          onChange(airport(v) ? v.toUpperCase() : '');
         }}
       />
       {known && !open && <div className="tiny muted" style={{ marginTop: 4 }}>{flagEmoji(known.country)} {known.city} · {known.name}</div>}
+      {!known && !open && text.trim().length > 0 && <div className="tiny" style={{ marginTop: 4, color: 'var(--bad)' }}>Pick an airport from the list</div>}
       {results.length > 0 && (
         <div className="suggest-list" id={listId} role="listbox">
           {results.map((a) => (
