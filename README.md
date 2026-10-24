@@ -4,6 +4,12 @@ Your flights, travel diary and membership cards in one place, with a live
 briefing for every trip: gate, nearest lounge, visa rules for your passport,
 strikes, and how to get into town.
 
+**▶ Live page: https://claude.ai/artifact/8AeL6cpTZhtQFZ2GtsVRj1**
+Opens on claude.ai (sign in first). It is private until the owner shares it
+from the page's Share menu. This is the claude.ai version described under
+*Publish as a claude.ai page* below; the full app with live gates and calendar
+sync runs on your own deployment (see *Deploy on Render*).
+
 **Trips:** your next flight as a boarding pass with a destination photo,
 countdown, weather and live gate/delay updates.
 **Add:** bring flights in from TripIt, calendars, Wallet passes, e-tickets,
