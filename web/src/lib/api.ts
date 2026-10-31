@@ -26,13 +26,14 @@ export function importCalendar(url: string) {
   return request<{ flights: FlightDraft[] }>('/api/import/calendar', { url });
 }
 
-const DOC_PROMPT = `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email). List every flight segment in it, in travel order. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it.
+const DOC_PROMPT = `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email), or one or more screenshots of a trip in a travel app such as TripIt. List every flight segment in it, in travel order, once each even if it appears on several screenshots. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it.
 Reply with only JSON in this shape:
 {"passengerName": "", "flights": [{"airline": "IATA 2-character code, e.g. A3", "flightNumber": "digits only", "date": "YYYY-MM-DD local departure date", "from": "IATA airport", "to": "IATA airport", "depLocal": "HH:MM or empty", "arrLocal": "HH:MM or empty", "seat": "", "cabin": "First | Business | Premium Economy | Economy | empty", "pnr": "", "aircraft": ""}]}
 Use empty strings for anything not shown, and an empty list if there are no flights.`;
 
 /** Read flights from a boarding-pass image, an e-ticket PDF or pasted booking text. */
-export async function readDocument(input: { file?: File; text?: string }): Promise<{ passengerName: string; flights: FlightDraft[] }> {
+export async function readDocument(input: { file?: File; files?: File[]; text?: string }): Promise<{ passengerName: string; flights: FlightDraft[] }> {
+  if (input.files?.length) return readScreenshots(input.files);
   if (IS_ARTIFACT) {
     if (input.file && !input.file.type.startsWith('image/')) {
       throw new Error('On this page, upload a screenshot of the ticket (PDF reading needs the full app).');
@@ -169,4 +170,23 @@ export async function readCards(input: { files?: File[]; text?: string }): Promi
     res = await request<{ cards: CardDraft[] }>('/api/import/cards', { images, text: input.text });
   }
   return (res.cards || []).filter((c) => c && String(c.memberNumber || '').trim());
+}
+
+/** Several screenshots of one trip (e.g. TripIt) read together, flights listed once. */
+async function readScreenshots(files: File[]): Promise<{ passengerName: string; flights: FlightDraft[] }> {
+  const images = files.filter((f) => f.type.startsWith('image/')).slice(0, 10);
+  if (!images.length) throw new Error('Choose screenshots (PNG or JPEG).');
+  let res: { passengerName?: string; flights?: FlightDraft[] };
+  if (IS_ARTIFACT) {
+    res = await askClaudeJson(DOC_PROMPT, { images });
+  } else {
+    const payload = await Promise.all(images.map(async (f) => ({ base64: await fileToBase64(f), mediaType: f.type })));
+    res = await request('/api/import/document', { images: payload });
+  }
+  const seen = new Set<string>();
+  const flights = (res.flights || [])
+    .filter((f) => /^[A-Z0-9]{2}$/.test(f.airline) && /^\d{4}-\d{2}-\d{2}$/.test(f.date))
+    .map((f) => Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '')) as unknown as FlightDraft)
+    .filter((f) => { const k = `${f.airline}${f.flightNumber}|${f.date}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  return { passengerName: res.passengerName || '', flights };
 }
