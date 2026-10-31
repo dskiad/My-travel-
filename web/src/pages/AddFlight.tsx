@@ -31,7 +31,7 @@ function How({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function AddFlight() {
-  const [source, setSource] = useState<SourceId>(IS_ARTIFACT ? 'gmail' : 'number');
+  const [source, setSource] = useState<SourceId>('number');
   const formRef = useRef<HTMLElement>(null);
   // Bring the form into view on every tap of a source (it sits below the tiles),
   // after the new form has rendered.
