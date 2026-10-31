@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AirportInput } from '../components/AirportInput.tsx';
 import { AirlineLogo } from '../components/AirlineLogo.tsx';
@@ -29,6 +29,13 @@ function How({ title, children }: { title: string; children: ReactNode }) {
 
 export default function AddFlight() {
   const [source, setSource] = useState<SourceId>('number');
+  const formRef = useRef<HTMLElement>(null);
+  // Bring the form into view on every tap of a source (it sits below the tiles),
+  // after the new form has rendered.
+  const [scrollTick, setScrollTick] = useState(0);
+  useEffect(() => {
+    if (scrollTick) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [scrollTick]);
   const [review, setReview] = useState<{ drafts: FlightDraft[]; source: FlightSource; note?: string } | null>(null);
   const navigate = useNavigate();
 
@@ -54,13 +61,13 @@ export default function AddFlight() {
       </header>
       <div className="source-grid">
         {SOURCES.filter((s) => !(IS_ARTIFACT && s.id === 'calendar')).map((s) => (
-          <button key={s.id} className="source" aria-pressed={source === s.id} onClick={() => setSource(s.id)}
+          <button key={s.id} className="source" aria-pressed={source === s.id} onClick={() => { setSource(s.id); setScrollTick((n) => n + 1); }}
             style={s.id === 'number' ? { gridColumn: '1 / -1', minHeight: 0 } : undefined}>
             <span className="s-ico">{s.ico}</span><b>{s.title}</b><span>{s.text}</span>
           </button>
         ))}
       </div>
-      <section className="section card">
+      <section className="section card" ref={formRef}>
         {source === 'number' && <ByNumber onFound={onFound} />}
         {source === 'scan' && <ByScan onFound={onFound} />}
         {source === 'calendar' && <ByCalendar onFound={onFound} />}

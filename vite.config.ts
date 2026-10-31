@@ -15,7 +15,8 @@ export default defineConfig({
       copyPublicDir: false,
       cssCodeSplit: false,
       assetsInlineLimit: 100_000_000,
-      rollupOptions: { output: { inlineDynamicImports: true } },
+      // One classic (non-module) script: the most widely supported way to run inline.
+      rollupOptions: { output: { inlineDynamicImports: true, format: 'iife' } },
     }
     : { outDir: '../dist', emptyOutDir: true, sourcemap: false },
   server: { proxy: { '/api': 'http://localhost:3000', '/healthz': 'http://localhost:3000' } },
