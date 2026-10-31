@@ -15,11 +15,12 @@ import { parseFlightCsv } from '../lib/importers/csv.ts';
 import { draftsFromBarcode, parsePkpass } from '../lib/importers/pkpass.ts';
 import type { Cabin, FlightDraft, FlightSource } from '../lib/types.ts';
 
-type SourceId = 'gmail' | 'number' | 'scan' | 'email' | 'calendar' | 'csv';
+type SourceId = 'gmail' | 'number' | 'tripit' | 'scan' | 'email' | 'calendar' | 'csv';
 
 const SOURCES: { id: SourceId; ico: string; title: string; text: string }[] = [
   ...(IS_ARTIFACT ? [{ id: 'gmail' as const, ico: '📬', title: 'From my Gmail', text: 'Pick a booking email, we read the flights' }] : []),
   { id: 'number', ico: '⌨️', title: 'Flight number', text: 'Type A3 600 + date, we fill in the rest' },
+  { id: 'tripit', ico: '🧳', title: 'TripIt screenshots', text: 'Screenshot your trip in the TripIt app' },
   { id: 'scan', ico: '🎫', title: 'Boarding pass & tickets', text: IS_ARTIFACT ? 'Google/Apple Wallet, airline app screenshots' : 'Google/Apple Wallet, airline app, e-ticket PDF' },
   { id: 'calendar', ico: '🗓️', title: 'TripIt & calendars', text: 'TripIt, Google, Outlook, Kayak — keeps syncing' },
   { id: 'email', ico: '✉️', title: 'Booking email', text: 'Paste any airline or agency confirmation' },
@@ -31,7 +32,7 @@ function How({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function AddFlight() {
-  const [source, setSource] = useState<SourceId>(IS_ARTIFACT ? 'gmail' : 'number');
+  const [source, setSource] = useState<SourceId>('number');
   const formRef = useRef<HTMLElement>(null);
   // Bring the form into view on every tap of a source (it sits below the tiles),
   // after the new form has rendered.
@@ -76,6 +77,7 @@ export default function AddFlight() {
         {source === 'calendar' && <ByCalendar onFound={onFound} />}
         {source === 'email' && <ByEmail onFound={onFound} />}
         {source === 'gmail' && <ByGmail onFound={onFound} />}
+        {source === 'tripit' && <ByTripItScreens onFound={onFound} />}
         {source === 'csv' && <ByCsv onFound={onFound} />}
       </section>
     </main>
@@ -312,6 +314,37 @@ function ByCalendar({ onFound }: { onFound: FoundFn }) {
 }
 
 // ---------------------------------------------------------------- email
+
+function ByTripItScreens({ onFound }: { onFound: FoundFn }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const read = async (files: File[]) => {
+    setError(''); setBusy(`Reading ${files.length} screenshot${files.length === 1 ? '' : 's'}…`);
+    try {
+      const res = await readDocument({ files });
+      onFound(res.flights.map((f) => ({ ...f, source: 'document' as const })), 'document');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <div className="stack">
+      <label className="dropzone">
+        <span style={{ fontSize: '2rem' }}>🧳</span>
+        <b>{busy || 'Upload TripIt screenshots'}</b>
+        <span className="small muted">Pick all the screenshots of one trip at once (up to 10)</span>
+        <input type="file" accept="image/*" multiple hidden disabled={!!busy}
+          onChange={(e) => { const files = [...(e.target.files || [])]; e.target.value = ''; if (files.length) read(files); }} />
+      </label>
+      {error && <div className="notice error small" role="alert">{error}</div>}
+      <How title="How to take them in TripIt">
+        <ol><li>Open the TripIt app and tap the trip.</li><li>Screenshot the plan list (scroll and take more if the trip is long), or open each flight and screenshot its details.</li><li>Upload them all here. Each flight is listed once, even if it’s on several screenshots.</li></ol>
+      </How>
+    </div>
+  );
+}
 
 function ByGmail({ onFound }: { onFound: FoundFn }) {
   const [busy, setBusy] = useState('');

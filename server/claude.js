@@ -56,14 +56,15 @@ const DOCUMENT_SCHEMA = {
  * e-ticket / itinerary PDF, or pasted confirmation email.
  * @param {{ imageBase64?: string, mediaType?: string, pdfBase64?: string, text?: string }} input
  */
-export async function extractFlights({ imageBase64, mediaType, pdfBase64, text }) {
+export async function extractFlights({ imageBase64, mediaType, images = [], pdfBase64, text }) {
   const content = [];
   if (imageBase64) content.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
+  for (const i of images) content.push({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.base64 } });
   if (pdfBase64) content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } });
   if (text) content.push({ type: 'text', text: `<document>\n${text}\n</document>` });
   content.push({
     type: 'text',
-    text: `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email). List every flight segment in it, in travel order. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it. Use empty strings for anything not shown, and return an empty list if it contains no flights.`,
+    text: `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email), or one or more screenshots of a trip in a travel app such as TripIt. List every flight segment in it, in travel order, once each even if it appears on several screenshots. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it. Use empty strings for anything not shown, and return an empty list if it contains no flights.`,
   });
   const response = await getClient().beta.messages.create({
     model: MODEL,

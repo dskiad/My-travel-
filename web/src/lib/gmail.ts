@@ -66,9 +66,11 @@ function toThread(t: Record<string, unknown>): MailThread | null {
   };
 }
 
+// Gmail's own travel category, or any email that talks about a flight booking
+// (subject or body), including travel-agency itineraries.
 export const BOOKING_QUERY =
-  '(subject:(booking OR confirmation OR itinerary OR reservation OR "e-ticket" OR eticket OR "boarding pass" OR "check-in") ' +
-  '(flight OR airline OR airways OR flights OR PNR OR "booking reference")) -in:sent newer_than:2y';
+  '(category:reservations OR ((flight OR flights OR airline OR airways OR "e-ticket" OR eticket OR itinerary OR "boarding pass" OR PNR OR "booking reference") ' +
+  '(confirmation OR booking OR itinerary OR ticket OR reservation OR "check-in"))) -in:sent newer_than:2y';
 
 export const LOYALTY_QUERY =
   '("Miles+Bonus" OR "Miles & More" OR "Flying Blue" OR "Executive Club" OR "British Airways Club" OR AAdvantage OR SkyMiles OR MileagePlus OR ' +

@@ -99,11 +99,14 @@ app.post('/api/import/cards', route(async (req) => {
 
 app.post('/api/import/document', route(async (req) => {
   const { imageBase64, mediaType, pdfBase64, text } = req.body;
-  if (imageBase64 && !/^image\/(png|jpeg|webp|gif)$/.test(mediaType || '')) throw badRequest('Upload a PNG, JPEG, WebP or GIF image');
-  if (!imageBase64 && !pdfBase64 && !String(text || '').trim()) throw badRequest('Add a file or paste the email text');
+  const images = Array.isArray(req.body.images) ? req.body.images.slice(0, 10) : [];
+  const isImage = (t) => /^image\/(png|jpeg|webp|gif)$/.test(t || '');
+  if (imageBase64 && !isImage(mediaType)) throw badRequest('Upload a PNG, JPEG, WebP or GIF image');
+  if (images.some((i) => !isImage(i?.mediaType) || typeof i.base64 !== 'string')) throw badRequest('Upload PNG, JPEG, WebP or GIF screenshots');
+  if (!imageBase64 && !images.length && !pdfBase64 && !String(text || '').trim()) throw badRequest('Add a file or paste the email text');
   if (text && text.length > 100_000) throw badRequest('That text is too long; paste just the booking email');
   requireClaude();
-  return extractFlights({ imageBase64, mediaType, pdfBase64, text: text ? String(text) : undefined });
+  return extractFlights({ imageBase64, mediaType, images, pdfBase64, text: text ? String(text) : undefined });
 }));
 
 const timeOf = (local) => String(local || '').match(/[ T](\d{2}:\d{2})/)?.[1];
