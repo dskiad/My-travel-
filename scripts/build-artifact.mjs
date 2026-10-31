@@ -51,9 +51,9 @@ ${safe(read('.css'))}
 </style>
 <div id="root"></div>
 <script>${showErrors}</script>
-<script type="application/json" id="mt-data">${safe(JSON.stringify({
+<script>window.__MT_DATA__ = ${safe(JSON.stringify({
   airports: data('airports.json'), airlines: data('airlines.json'), icao: data('airport-icao.json'),
-}))}</script>
+}))};</script>
 <script>
 ${safe(read('.js'))}
 </script>
