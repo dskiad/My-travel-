@@ -70,6 +70,11 @@ export const BOOKING_QUERY =
   '(subject:(booking OR confirmation OR itinerary OR reservation OR "e-ticket" OR eticket OR "boarding pass" OR "check-in") ' +
   '(flight OR airline OR airways OR flights OR PNR OR "booking reference")) -in:sent newer_than:2y';
 
+export const LOYALTY_QUERY =
+  '("Miles+Bonus" OR "Miles & More" OR "Flying Blue" OR "Executive Club" OR "British Airways Club" OR AAdvantage OR SkyMiles OR MileagePlus OR ' +
+  'Skywards OR "Privilege Club" OR "Miles&Smiles" OR "Etihad Guest" OR KrisFlyer OR Aeroplan OR EuroBonus OR "Asia Miles" OR "Flying Club" OR ' +
+  'Volare OR "frequent flyer" OR "membership number" OR "member number" OR "your miles" OR "miles statement" OR "tier status") -in:sent newer_than:3y';
+
 /** Booking emails, newest first. `query` narrows it (e.g. a PNR). */
 export async function searchBookingEmails(query = BOOKING_QUERY): Promise<MailThread[]> {
   const payload = await call('search_threads', { query, pageSize: 20, view: 'THREAD_VIEW_MINIMAL' });

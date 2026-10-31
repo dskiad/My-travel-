@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { fetchCalendar } from './calendar.js';
 import { parseBCBP } from './bcbp.js';
 import { getFlightStatus, hasFlightStatusProvider } from './flightStatus.js';
-import { buildBriefing, extractFlights, hasClaude, RefusalError } from './claude.js';
+import { buildBriefing, extractCards, extractFlights, hasClaude, RefusalError } from './claude.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(here, '..', 'dist');
@@ -84,6 +84,17 @@ app.post('/api/import/barcode', route(async (req) => {
   } catch (err) {
     throw badRequest(err.message);
   }
+}));
+
+app.post('/api/import/cards', route(async (req) => {
+  const images = Array.isArray(req.body.images) ? req.body.images.slice(0, 10) : [];
+  if (images.some((i) => !/^image\/(png|jpeg|webp|gif)$/.test(i?.mediaType || '') || typeof i.base64 !== 'string')) {
+    throw badRequest('Upload PNG, JPEG, WebP or GIF screenshots');
+  }
+  const text = req.body.text ? String(req.body.text).slice(0, 60000) : undefined;
+  if (!images.length && !text) throw badRequest('Add a screenshot of the card');
+  requireClaude();
+  return extractCards({ images, text });
 }));
 
 app.post('/api/import/document', route(async (req) => {

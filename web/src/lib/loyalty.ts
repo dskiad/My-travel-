@@ -124,3 +124,15 @@ export function statusSummary(memberships: Membership[]): string {
     .map(({ m, p }) => [p.name, m.tier, p.alliance && `(${p.alliance})`].filter(Boolean).join(' '))
     .join('; ');
 }
+
+const norm = (s = '') => s.toLowerCase().replace(/[^a-z0-9+&]/g, '');
+
+/** The catalogue programme a card or email refers to, if we know it. */
+export function matchProgram(program: string, company = ''): Program | undefined {
+  const p = norm(program).length >= 4 ? norm(program) : '';
+  const c = norm(company);
+  // The card shows the full programme name, or a long enough part of it (not just "club").
+  return PROGRAMS.find((x) => p && (p.includes(norm(x.name)) || (p.length >= 6 && norm(x.name).includes(p))))
+    || PROGRAMS.find((x) => c && x.kind === 'airline' && (c.includes(norm(x.brand)) || norm(x.brand).includes(c)))
+    || PROGRAMS.find((x) => (p || c) && x.domain && (p + c).includes(norm(x.domain.split('.')[0])));
+}

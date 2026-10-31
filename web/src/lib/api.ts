@@ -148,3 +148,25 @@ export function weatherIcon(code: number): string {
   if (code <= 77 || code === 85 || code === 86) return '🌨️';
   return '⛈️';
 }
+
+// ---------- membership cards (Wallet screenshots, programme emails) ----------
+
+export interface CardDraft { program: string; company: string; memberNumber: string; tier: string; holderName: string; expiry: string }
+
+const CARD_PROMPT = 'These are loyalty or membership cards (screenshots from Google Wallet, Apple Wallet or an airline app, or photos), or an email from a loyalty programme. List every membership shown: the programme name as printed (for example Miles+Bonus, Miles & More, Flying Blue, Marriott Bonvoy, Priority Pass), the airline or company, the member number exactly as printed, the tier or status, the name on the card, and the expiry as YYYY-MM. Use empty strings for anything not shown. Ignore payment cards (credit or debit card numbers) completely. Return an empty list if there are no memberships.';
+
+/** Read membership cards from screenshots/photos or a programme email. */
+export async function readCards(input: { files?: File[]; text?: string }): Promise<CardDraft[]> {
+  let res: { cards?: CardDraft[] };
+  if (IS_ARTIFACT) {
+    res = await askClaudeJson<{ cards?: CardDraft[] }>(
+      `${CARD_PROMPT}\nReply with only JSON: {"cards": [{"program": "", "company": "", "memberNumber": "", "tier": "", "holderName": "", "expiry": ""}]}` +
+        (input.text ? `\n\n<document>\n${input.text.slice(0, 60000)}\n</document>` : ''),
+      input.files?.length ? { images: input.files } : {},
+    );
+  } else {
+    const images = await Promise.all((input.files || []).map(async (f) => ({ base64: await fileToBase64(f), mediaType: f.type })));
+    res = await request<{ cards: CardDraft[] }>('/api/import/cards', { images, text: input.text });
+  }
+  return (res.cards || []).filter((c) => c && String(c.memberNumber || '').trim());
+}

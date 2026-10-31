@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MemberCard, ProgramLogo, formatMemberNumber } from '../components/MemberCard.tsx';
 import { Barcode } from '../components/Barcode.tsx';
@@ -6,6 +6,11 @@ import { ConfirmButton, Field, Sheet, copyText, toast } from '../components/ui.t
 import { deleteMembership, moveMembership, saveMembership, useStore } from '../lib/store.ts';
 import { KIND_LABEL, PROGRAMS, PROGRAM_BY_ID, programOf, type Program, type ProgramKind } from '../lib/loyalty.ts';
 import type { Membership } from '../lib/types.ts';
+import { matchProgram } from '../lib/loyalty.ts';
+import { readCards, type CardDraft } from '../lib/api.ts';
+import { GmailPicker } from '../components/GmailPicker.tsx';
+import { emailText, gmailAvailable, gmailErrorText, LOYALTY_QUERY } from '../lib/gmail.ts';
+
 
 type Editing = Partial<Membership> & { programId: string };
 
@@ -13,6 +18,7 @@ export default function Wallet() {
   const { memberships, settings } = useStore();
   const [params, setParams] = useSearchParams();
   const [picking, setPicking] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [query, setQuery] = useState('');
   const showing = memberships.find((m) => m.id === params.get('show'));
@@ -45,7 +51,10 @@ export default function Wallet() {
     <main className="page">
       <header className="page-header">
         <div><div className="eyebrow">Wallet</div><h1>Membership cards</h1></div>
-        <button className="btn accent" onClick={() => { setQuery(''); setPicking(true); }}>+ Add</button>
+        <div className="row" style={{ flexWrap: 'nowrap' }}>
+          <button className="btn sm" onClick={() => setImporting(true)}>⬇ Import</button>
+          <button className="btn accent sm" onClick={() => { setQuery(''); setPicking(true); }}>+ Add</button>
+        </div>
       </header>
 
       {memberships.length === 0 ? (
@@ -53,7 +62,10 @@ export default function Wallet() {
           <div className="big">💳</div>
           <h2>All your member numbers, one tap away</h2>
           <p className="muted small">Add frequent-flyer, hotel, car-rental and lounge memberships. Show the card at check-in or the lounge desk, copy the number into a booking, and see which card to use on each flight.</p>
-          <button className="btn primary" onClick={() => setPicking(true)}>Add your first card</button>
+          <div className="row" style={{ justifyContent: 'center' }}>
+            <button className="btn primary" onClick={() => setImporting(true)}>Import from Google Wallet or Gmail</button>
+            <button className="btn" onClick={() => setPicking(true)}>Add by hand</button>
+          </div>
         </div>
       ) : (
         byKind.map(([kind, list]) => (
@@ -94,6 +106,7 @@ export default function Wallet() {
       )}
 
       {editing && <EditSheet value={editing} onClose={() => setEditing(null)} />}
+      {importing && <ImportSheet existing={memberships} holder={settings.name} onClose={() => setImporting(false)} />}
 
       {showing && !editing && (
         <Sheet title={programOf(showing).name} onClose={() => show()}>
@@ -162,6 +175,112 @@ function EditSheet({ value, onClose }: { value: Editing; onClose: () => void }) 
         <Field label="Notes"><input className="input" value={m.notes || ''} onChange={(e) => set({ notes: e.target.value })} placeholder="PIN hint, partner number, guest allowance…" /></Field>
         <button className="btn primary">{value.id ? 'Save changes' : 'Add to wallet'}</button>
       </form>
+    </Sheet>
+  );
+}
+
+interface Found extends CardDraft { programId: string; tierName: string; duplicate: boolean }
+
+/** Bring cards in from Wallet screenshots or programme emails in Gmail. */
+function ImportSheet({ existing, holder, onClose }: { existing: Membership[]; holder: string; onClose: () => void }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [found, setFound] = useState<Found[] | null>(null);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [gmail, setGmail] = useState(false);
+  useEffect(() => { gmailAvailable().then(setGmail); }, []);
+
+  const known = new Set(existing.map((m) => `${m.programId}|${m.memberNumber.replace(/\s+/g, '')}`));
+  const review = (cards: CardDraft[]) => {
+    const list = cards.map((c) => {
+      const p = matchProgram(c.program, c.company);
+      const programId = p?.id || 'custom';
+      const tierName = (p?.tiers?.find((t) => c.tier && c.tier.toLowerCase().includes(t.toLowerCase())) || c.tier || '').trim();
+      return { ...c, programId, tierName, duplicate: known.has(`${programId}|${c.memberNumber.replace(/\s+/g, '')}`) };
+    });
+    setFound(list);
+    setPicked(new Set(list.map((c, i) => (c.duplicate ? -1 : i)).filter((i) => i >= 0)));
+    if (!list.length) setError('No membership numbers found there. Try a clearer screenshot of the card.');
+  };
+
+  const run = async (label: string, job: () => Promise<CardDraft[]>) => {
+    setError(''); setBusy(label);
+    try { review(await job()); } catch (e) {
+      setError((e as { code?: string }).code ? gmailErrorText(e) : (e as Error).message);
+    } finally { setBusy(''); }
+  };
+
+  const save = () => {
+    let n = 0;
+    found?.forEach((c, i) => {
+      if (!picked.has(i)) return;
+      saveMembership({
+        programId: c.programId,
+        customName: c.programId === 'custom' ? (c.program || c.company || 'Membership') : undefined,
+        memberNumber: c.memberNumber.trim(),
+        tier: c.tierName || undefined,
+        holderName: c.holderName || holder || undefined,
+        expiry: /^\d{4}-\d{2}$/.test(c.expiry) ? c.expiry : undefined,
+        barcode: 'code128',
+      } as Membership);
+      n++;
+    });
+    toast(`${n} card${n === 1 ? '' : 's'} added to your wallet`);
+    onClose();
+  };
+
+  return (
+    <Sheet title="Import membership cards" onClose={onClose}>
+      {!found ? (
+        <div className="stack">
+          <label className="dropzone">
+            <span style={{ fontSize: '2rem' }}>📱</span>
+            <b>{busy || 'Upload card screenshots'}</b>
+            <span className="small muted">Google Wallet, Apple Wallet or airline app · you can pick several</span>
+            <input type="file" accept="image/*" multiple hidden disabled={!!busy}
+              onChange={(e) => {
+                const files = [...(e.target.files || [])].slice(0, 10);
+                e.target.value = '';
+                if (files.length) run(`Reading ${files.length} card${files.length === 1 ? '' : 's'}…`, () => readCards({ files }));
+              }} />
+          </label>
+          <details className="how">
+            <summary>How to get them from Google Wallet</summary>
+            <ol><li>Open Google Wallet and tap a miles or membership card.</li><li>Take a screenshot (repeat for each card).</li><li>Upload them all here at once.</li></ol>
+            <p className="tiny" style={{ marginTop: 6 }}>Google doesn’t let other apps read your Wallet directly. Bank and credit cards are ignored.</p>
+          </details>
+          {gmail && (
+            <div className="stack" style={{ marginTop: 6 }}>
+              <h3>Or find them in Gmail</h3>
+              <p className="small muted">Welcome emails and miles statements usually show your member number.</p>
+              <GmailPicker query={LOYALTY_QUERY} searchLabel="Find my miles & membership emails" pickLabel="Read" busy={busy}
+                onPick={(t) => run('Reading the email…', async () => readCards({ text: (await emailText(t.threadId)).text }))} />
+            </div>
+          )}
+          {error && <div className="notice error small" role="alert">{error}</div>}
+        </div>
+      ) : (
+        <div className="stack">
+          {found.map((c, i) => {
+            const p = PROGRAM_BY_ID[c.programId] as Program | undefined;
+            return (
+              <label key={i} className="flight-row review-item">
+                <input type="checkbox" checked={picked.has(i)} onChange={() => setPicked((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; })} />
+                {p ? <ProgramLogo program={p} className="logo" /> : <span className="logo"><b>{(c.program || '?').slice(0, 2)}</b></span>}
+                <div className="r-main">
+                  <b className="small">{p?.name || c.program || c.company}</b>
+                  <div className="mono small">{formatMemberNumber(c.memberNumber)}</div>
+                  <div className="r-sub">{[c.tierName, c.duplicate && 'already in your wallet'].filter(Boolean).join(' · ')}</div>
+                </div>
+              </label>
+            );
+          })}
+          <div className="row">
+            <button className="btn" onClick={() => setFound(null)}>Back</button>
+            <button className="btn primary grow" disabled={!picked.size} onClick={save}>Add {picked.size} to wallet</button>
+          </div>
+        </div>
+      )}
     </Sheet>
   );
 }

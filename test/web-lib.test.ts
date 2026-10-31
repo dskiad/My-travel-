@@ -98,3 +98,14 @@ test('picks the right membership to credit a flight to', () => {
   assert.deepEqual(membershipsForAirline('FR', wallet), []);
   assert.equal(statusSummary(wallet), 'Miles & More Frequent Traveller (Star Alliance); Miles+Bonus Gold (Star Alliance)');
 });
+
+test('matches card names to loyalty programmes', async () => {
+  const { matchProgram } = await import('../web/src/lib/loyalty.ts');
+  assert.equal(matchProgram('Miles+Bonus', 'Aegean Airlines')?.id, 'milesbonus');
+  assert.equal(matchProgram('MILES & MORE', '')?.id, 'milesandmore');
+  assert.equal(matchProgram('Flying Blue Gold', 'KLM')?.id, 'flyingblue');
+  assert.equal(matchProgram('', 'Turkish Airlines')?.id, 'milessmiles');
+  assert.equal(matchProgram('Marriott Bonvoy', '')?.id, 'bonvoy');
+  assert.equal(matchProgram('Club', '')?.id, undefined);
+  assert.equal(matchProgram('Some Local Gym', '')?.id, undefined);
+});
