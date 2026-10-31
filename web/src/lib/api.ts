@@ -26,7 +26,7 @@ export function importCalendar(url: string) {
   return request<{ flights: FlightDraft[] }>('/api/import/calendar', { url });
 }
 
-const DOC_PROMPT = `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email), or one or more screenshots of a trip in a travel app such as TripIt. List every flight segment in it, in travel order, once each even if it appears on several screenshots. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it.
+const DOC_PROMPT = `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email), or one or more screenshots of trips in a travel or airline app such as TripIt or the Aegean app. List every flight segment in it, in travel order, once each even if it appears on several screenshots. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it.
 Reply with only JSON in this shape:
 {"passengerName": "", "flights": [{"airline": "IATA 2-character code, e.g. A3", "flightNumber": "digits only", "date": "YYYY-MM-DD local departure date", "from": "IATA airport", "to": "IATA airport", "depLocal": "HH:MM or empty", "arrLocal": "HH:MM or empty", "seat": "", "cabin": "First | Business | Premium Economy | Economy | empty", "pnr": "", "aircraft": ""}]}
 Use empty strings for anything not shown, and an empty list if there are no flights.`;
