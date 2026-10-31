@@ -33,7 +33,10 @@ export function Home() {
     <>
       <header className="hero">
         <div className="page">
-          <div className="greeting">{greeting()}{settings.name ? `, ${settings.name.split(' ')[0]}` : ''} ✨</div>
+          <div className="spread">
+            <div className="greeting">{greeting()}{settings.name ? `, ${settings.name.split(' ')[0]}` : ''} ✨</div>
+            <Link to="/profile" className="hero-profile" aria-label="Profile and settings">👤</Link>
+          </div>
           <h1>{next ? <>Next stop: {dest?.city || next.to}</> : 'Where to next?'}</h1>
           {next && dest && (
             <p style={{ opacity: .8, marginTop: 6 }}>
