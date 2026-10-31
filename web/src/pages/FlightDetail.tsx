@@ -4,6 +4,8 @@ import { FlightCard } from '../components/FlightCard.tsx';
 import { ProgramLogo, formatMemberNumber } from '../components/MemberCard.tsx';
 import { ConfirmButton, Field, Sheet, copyText, toast } from '../components/ui.tsx';
 import { IS_ARTIFACT } from '../lib/platform.ts';
+import { GmailPicker } from '../components/GmailPicker.tsx';
+import { forwardToTripIt, gmailErrorText, queryForFlight, TRIPIT_ADDRESS } from '../lib/gmail.ts';
 import { deleteFlight, updateFlight, useStore } from '../lib/store.ts';
 import { isPast } from '../lib/flights.ts';
 import { airport, airlineName, countryName, flagEmoji } from '../lib/geo.ts';
@@ -142,6 +144,8 @@ export default function FlightDetail() {
           </div>
         )}
 
+        {IS_ARTIFACT && <TripItCard flight={flight} />}
+
         <div className="row">
           {upcoming && <button className="btn primary grow" onClick={() => loadBriefing(flight)} disabled={loading}>{loading ? 'Researching…' : b ? '↻ Refresh briefing' : 'Get travel briefing'}</button>}
           {upcoming && !IS_ARTIFACT && 'Notification' in window && Notification.permission !== 'granted' && (
@@ -156,6 +160,52 @@ export default function FlightDetail() {
 
       {editing && <EditFlight flight={flight} onClose={() => setEditing(false)} onDelete={() => { deleteFlight(flight.id); toast('Flight deleted'); navigate('/diary'); }} />}
     </main>
+  );
+}
+
+/** Forward this flight's booking email from the viewer's Gmail to TripIt. */
+function TripItCard({ flight }: { flight: Flight }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [choosing, setChoosing] = useState(false);
+
+  const send = async (messageId: string) => {
+    setError(''); setBusy('Sending to TripIt…');
+    try {
+      await forwardToTripIt(messageId);
+      updateFlight(flight.id, { gmailMessageId: messageId, tripitSentAt: new Date().toISOString() });
+      setChoosing(false);
+      toast('Sent to TripIt ✓');
+    } catch (e) {
+      // A failed send may still have gone out, so it is never retried automatically.
+      setError(`${gmailErrorText(e)} Check TripIt before sending again.`);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <section className="card stack">
+      <div className="spread">
+        <h2>🧳 TripIt</h2>
+        {flight.tripitSentAt && <span className="pill good">Sent {new Date(flight.tripitSentAt).toLocaleDateString()}</span>}
+      </div>
+      <p className="small muted">
+        Adds this trip to your TripIt by forwarding its booking email from your Gmail to {TRIPIT_ADDRESS}. TripIt only accepts it if your Gmail address is on your TripIt account (TripIt → Settings → Email addresses).
+      </p>
+      {flight.gmailMessageId && !choosing ? (
+        <div className="row">
+          <ConfirmButton className="btn primary grow" label={flight.tripitSentAt ? 'Send to TripIt again' : 'Send to TripIt'}
+            confirmLabel={`Tap again to email ${TRIPIT_ADDRESS}`} onConfirm={() => send(flight.gmailMessageId!)} />
+          <button type="button" className="btn" onClick={() => setChoosing(true)}>Pick another email</button>
+        </div>
+      ) : (
+        <GmailPicker query={queryForFlight(flight)} searchLabel="Find this booking in Gmail" pickLabel="Send"
+          busy={busy} onPick={(t) => send(t.messageId)} />
+      )}
+      {busy && flight.gmailMessageId && !choosing && <div className="notice small" role="status">{busy}</div>}
+      {error && <div className="notice error small" role="alert">{error}</div>}
+    </section>
   );
 }
 

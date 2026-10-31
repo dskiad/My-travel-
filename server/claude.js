@@ -82,6 +82,53 @@ export async function extractFlights({ imageBase64, mediaType, pdfBase64, text }
 }
 
 // ---------------------------------------------------------------------------
+// Loyalty / membership cards (Wallet screenshots, programme emails)
+// ---------------------------------------------------------------------------
+
+export const CARD_PROMPT = 'These are loyalty or membership cards (screenshots from Google Wallet, Apple Wallet or an airline app, or photos), or an email from a loyalty programme. List every membership shown: the programme name as printed (for example Miles+Bonus, Miles & More, Flying Blue, Marriott Bonvoy, Priority Pass), the airline or company, the member number exactly as printed, the tier or status, the name on the card, and the expiry as YYYY-MM. Use empty strings for anything not shown. Ignore payment cards (credit or debit card numbers) completely. Return an empty list if there are no memberships.';
+
+const CARDS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['cards'],
+  properties: {
+    cards: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['program', 'company', 'memberNumber', 'tier', 'holderName', 'expiry'],
+        properties: {
+          program: str('Programme name as printed'),
+          company: str('Airline, hotel group or company'),
+          memberNumber: str('Member number exactly as printed'),
+          tier: str('Tier or status, empty if not shown'),
+          holderName: str('Name on the card'),
+          expiry: str('YYYY-MM, empty if not shown'),
+        },
+      },
+    },
+  },
+};
+
+/** @param {{ images?: { base64: string, mediaType: string }[], text?: string }} input */
+export async function extractCards({ images = [], text }) {
+  const content = images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.base64 } }));
+  if (text) content.push({ type: 'text', text: `<document>\n${text}\n</document>` });
+  content.push({ type: 'text', text: CARD_PROMPT });
+  const response = await getClient().beta.messages.create({
+    model: MODEL,
+    max_tokens: 4000,
+    betas: [FALLBACK_BETA],
+    fallbacks: 'default',
+    output_config: { effort: 'low', format: { type: 'json_schema', schema: CARDS_SCHEMA } },
+    messages: [{ role: 'user', content }],
+  });
+  if (response.stop_reason === 'refusal') throw new RefusalError('Could not read these cards');
+  return JSON.parse(textOf(response));
+}
+
+// ---------------------------------------------------------------------------
 // Travel briefing: lounges, entry rules, strikes, ground transport
 // ---------------------------------------------------------------------------
 

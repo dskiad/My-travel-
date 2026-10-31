@@ -366,3 +366,10 @@ textarea.input { min-height: 140px; resize: vertical; }
 @keyframes fly { to { transform: translate(14px, -6px) rotate(-8deg); } }
 .artifact .hero { padding-top: 22px; }
 .artifact .page-header { padding-top: 20px; }
+
+/* Keep focused fields and buttons clear of the bottom menu, and let date/time
+   inputs shrink on narrow phones instead of spilling out of their card. */
+html { scroll-padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px); scroll-padding-top: 16px; }
+.input { min-width: 0; max-width: 100%; }
+input[type='date'].input, input[type='time'].input, input[type='month'].input { -webkit-appearance: none; appearance: none; }
+@media (max-width: 380px) { form .grid-2 { grid-template-columns: minmax(0, 1fr); } }

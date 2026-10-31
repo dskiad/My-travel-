@@ -17,6 +17,10 @@ export interface Flight {
   aircraft?: string;
   notes?: string;
   trip?: string;
+  /** Booking email this flight came from (claude.ai page, Gmail import). */
+  gmailMessageId?: string;
+  /** When the booking email was forwarded to TripIt. */
+  tripitSentAt?: string;
   source: FlightSource;
   createdAt: string;
   briefing?: Briefing;
@@ -24,7 +28,7 @@ export interface Flight {
 }
 
 export type FlightSource =
-  | 'manual' | 'calendar' | 'boarding-pass' | 'wallet-pass' | 'document' | 'csv' | 'backup';
+  | 'manual' | 'calendar' | 'boarding-pass' | 'wallet-pass' | 'document' | 'csv' | 'backup' | 'gmail';
 
 export interface FlightDraft extends Partial<Omit<Flight, 'id' | 'createdAt'>> {
   airline: string;

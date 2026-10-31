@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AirportInput } from '../components/AirportInput.tsx';
 import { AirlineLogo } from '../components/AirlineLogo.tsx';
@@ -9,13 +9,16 @@ import { draftIsComplete, parseFlightCode } from '../lib/flights.ts';
 import { airlineName, airport } from '../lib/geo.ts';
 import { importCalendar, lookupFlight, readDocument } from '../lib/api.ts';
 import { IS_ARTIFACT } from '../lib/platform.ts';
+import { GmailPicker } from '../components/GmailPicker.tsx';
+import { emailText, gmailErrorText, TRIPIT_ADDRESS } from '../lib/gmail.ts';
 import { parseFlightCsv } from '../lib/importers/csv.ts';
 import { draftsFromBarcode, parsePkpass } from '../lib/importers/pkpass.ts';
 import type { Cabin, FlightDraft, FlightSource } from '../lib/types.ts';
 
-type SourceId = 'number' | 'scan' | 'email' | 'calendar' | 'csv';
+type SourceId = 'gmail' | 'number' | 'scan' | 'email' | 'calendar' | 'csv';
 
 const SOURCES: { id: SourceId; ico: string; title: string; text: string }[] = [
+  ...(IS_ARTIFACT ? [{ id: 'gmail' as const, ico: '📬', title: 'From my Gmail', text: 'Pick a booking email, we read the flights' }] : []),
   { id: 'number', ico: '⌨️', title: 'Flight number', text: 'Type A3 600 + date, we fill in the rest' },
   { id: 'scan', ico: '🎫', title: 'Boarding pass & tickets', text: IS_ARTIFACT ? 'Google/Apple Wallet, airline app screenshots' : 'Google/Apple Wallet, airline app, e-ticket PDF' },
   { id: 'calendar', ico: '🗓️', title: 'TripIt & calendars', text: 'TripIt, Google, Outlook, Kayak — keeps syncing' },
@@ -28,7 +31,14 @@ function How({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function AddFlight() {
-  const [source, setSource] = useState<SourceId>('number');
+  const [source, setSource] = useState<SourceId>(IS_ARTIFACT ? 'gmail' : 'number');
+  const formRef = useRef<HTMLElement>(null);
+  // Bring the form into view on every tap of a source (it sits below the tiles),
+  // after the new form has rendered.
+  const [scrollTick, setScrollTick] = useState(0);
+  useEffect(() => {
+    if (scrollTick) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [scrollTick]);
   const [review, setReview] = useState<{ drafts: FlightDraft[]; source: FlightSource; note?: string } | null>(null);
   const navigate = useNavigate();
 
@@ -54,17 +64,18 @@ export default function AddFlight() {
       </header>
       <div className="source-grid">
         {SOURCES.filter((s) => !(IS_ARTIFACT && s.id === 'calendar')).map((s) => (
-          <button key={s.id} className="source" aria-pressed={source === s.id} onClick={() => setSource(s.id)}
-            style={s.id === 'number' ? { gridColumn: '1 / -1', minHeight: 0 } : undefined}>
+          <button key={s.id} className="source" aria-pressed={source === s.id} onClick={() => { setSource(s.id); setScrollTick((n) => n + 1); }}
+            style={s.id === SOURCES[0].id ? { gridColumn: '1 / -1', minHeight: 0 } : undefined}>
             <span className="s-ico">{s.ico}</span><b>{s.title}</b><span>{s.text}</span>
           </button>
         ))}
       </div>
-      <section className="section card">
+      <section className="section card" ref={formRef}>
         {source === 'number' && <ByNumber onFound={onFound} />}
         {source === 'scan' && <ByScan onFound={onFound} />}
         {source === 'calendar' && <ByCalendar onFound={onFound} />}
         {source === 'email' && <ByEmail onFound={onFound} />}
+        {source === 'gmail' && <ByGmail onFound={onFound} />}
         {source === 'csv' && <ByCsv onFound={onFound} />}
       </section>
     </main>
@@ -301,6 +312,35 @@ function ByCalendar({ onFound }: { onFound: FoundFn }) {
 }
 
 // ---------------------------------------------------------------- email
+
+function ByGmail({ onFound }: { onFound: FoundFn }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const pick = async (threadId: string) => {
+    setError(''); setBusy('Reading the email…');
+    try {
+      const { text, messageId } = await emailText(threadId);
+      setBusy('Finding the flights in it…');
+      const res = await readDocument({ text });
+      onFound(res.flights.map((f) => ({ ...f, gmailMessageId: messageId, source: 'gmail' as const })), 'gmail',
+        `Tip: open a flight and tap “Send to TripIt” to add it to your TripIt too.`);
+    } catch (e) {
+      setError((e as { code?: string }).code ? gmailErrorText(e) : (e as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <div className="stack">
+      <p className="small muted">Finds airline and travel-agency booking emails in your Gmail. Nothing is read until you pick one, and the first time claude.ai asks you to allow Gmail for this page.</p>
+      <GmailPicker searchLabel="Find my booking emails" pickLabel="Import" busy={busy} onPick={(t) => pick(t.threadId)} />
+      {error && <div className="notice error small" role="alert">{error}</div>}
+      <How title="Also add them to TripIt">
+        <ol><li>Open an imported flight and tap <b>Send to TripIt</b>. Its booking email is forwarded from your Gmail to {TRIPIT_ADDRESS}.</li><li>TripIt only accepts emails from addresses on your TripIt account: check TripIt → Settings → Email addresses.</li></ol>
+      </How>
+    </div>
+  );
+}
 
 function ByEmail({ onFound }: { onFound: FoundFn }) {
   const [text, setText] = useState('');

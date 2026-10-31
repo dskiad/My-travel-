@@ -35,7 +35,15 @@ export function AirportInput({ value, onChange, placeholder }: { value: string; 
         autoComplete="off"
         aria-autocomplete="list"
         aria-controls={listId}
+        enterKeyHint="next"
         onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          // Enter (the phone keyboard's Go/Next key) or Tab accepts the top suggestion.
+          if ((e.key === 'Enter' || e.key === 'Tab') && results.length && !airport(value)) {
+            if (e.key === 'Enter') e.preventDefault();
+            pick(results[0].iata);
+          }
+        }}
         onBlur={() => { settleTimer.current = window.setTimeout(settle, 150); }}
         onChange={(e) => {
           const v = e.target.value;
