@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { Home } from './pages/Home.tsx';
 import { Toaster } from './components/ui.tsx';
+import { IS_ARTIFACT } from './lib/platform.ts';
 
 const AddFlight = lazy(() => import('./pages/AddFlight.tsx'));
 const Diary = lazy(() => import('./pages/Diary.tsx'));
@@ -19,10 +20,22 @@ const NAV = [
 
 export function App() {
   const { pathname } = useLocation();
+  const nav = (
+    <nav className="nav" aria-label="Main">
+      {NAV.map((n) => (
+        <NavLink key={n.to} to={n.to} end={n.end} className={n.add ? 'add' : undefined} aria-label={n.label}>
+          {n.add ? <span className="plus">+</span> : <span className="ico">{n.ico}</span>}
+          {!n.add && n.label}
+        </NavLink>
+      ))}
+    </nav>
+  );
+
   useEffect(() => window.scrollTo(0, 0), [pathname]);
 
   return (
     <div className="app">
+      {IS_ARTIFACT && nav}
       <Suspense fallback={<div className="page" style={{ paddingTop: 80 }}><div className="skeleton" /></div>}>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -34,14 +47,7 @@ export function App() {
           <Route path="*" element={<Home />} />
         </Routes>
       </Suspense>
-      <nav className="nav" aria-label="Main">
-        {NAV.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.end} className={n.add ? 'add' : undefined} aria-label={n.label}>
-            {n.add ? <span className="plus">+</span> : <span className="ico">{n.ico}</span>}
-            {!n.add && n.label}
-          </NavLink>
-        ))}
-      </nav>
+      {!IS_ARTIFACT && nav}
       <Toaster />
     </div>
   );

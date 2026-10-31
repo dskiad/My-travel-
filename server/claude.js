@@ -64,7 +64,7 @@ export async function extractFlights({ imageBase64, mediaType, images = [], pdfB
   if (text) content.push({ type: 'text', text: `<document>\n${text}\n</document>` });
   content.push({
     type: 'text',
-    text: `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email), or one or more screenshots of a trip in a travel app such as TripIt. List every flight segment in it, in travel order, once each even if it appears on several screenshots. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it. Use empty strings for anything not shown, and return an empty list if it contains no flights.`,
+    text: `This is a travel document: a boarding pass, e-ticket, itinerary or booking confirmation (possibly a phone screenshot or a forwarded email), or one or more screenshots of trips in a travel or airline app such as TripIt or the Aegean app. List every flight segment in it, in travel order, once each even if it appears on several screenshots. Today is ${new Date().toISOString().slice(0, 10)}; use it to infer the year when the document omits it. Use empty strings for anything not shown, and return an empty list if it contains no flights.`,
   });
   const response = await getClient().beta.messages.create({
     model: MODEL,
