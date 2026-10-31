@@ -5,7 +5,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-execSync('npx vite build', { stdio: 'inherit', env: { ...process.env, VITE_TARGET: 'artifact' } });
+execSync(process.env.NO_MINIFY ? 'npx vite build --minify false' : 'npx vite build', { stdio: 'inherit', env: { ...process.env, VITE_TARGET: 'artifact' } });
 
 const out = 'dist-artifact';
 const assets = fs.readdirSync(path.join(out, 'assets'));
@@ -21,11 +21,24 @@ const safe = (s) => s
   .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
 
 // If the app can't start, say so on screen instead of leaving it blank.
-const showErrors = `window.addEventListener('error', function (e) {
-  var r = document.getElementById('root');
-  if (r && !r.firstChild) r.innerHTML = '<p style="padding:24px;font:15px system-ui">My Travel could not start: ' +
-    String(e.message || e.error || 'unknown error').replace(/[<&]/g, '') + '</p>';
-});`;
+const showErrors = `(function () {
+  function show(msg, stack) {
+    var r = document.getElementById('root');
+    if (!r || r.getAttribute('data-crashed')) return;
+    r.setAttribute('data-crashed', '1');
+    var p = document.createElement('div');
+    p.style.cssText = 'padding:24px;font:14px/1.5 system-ui;white-space:pre-wrap;word-break:break-word';
+    p.textContent = 'My Travel could not start: ' + msg + (stack ? '\\n\\n' + String(stack).split('\\n').slice(0, 8).join('\\n') : '');
+    r.replaceChildren(p);
+  }
+  window.addEventListener('error', function (e) {
+    show(String(e.message || 'unknown error') + ' (' + (e.lineno || '?') + ':' + (e.colno || '?') + ')', e.error && e.error.stack);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason || {};
+    show('(async) ' + String(r.message || r), r.stack);
+  });
+})();`;
 
 const page = `<title>My Travel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
