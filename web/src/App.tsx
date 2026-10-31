@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Home } from './pages/Home.tsx';
 import { Toaster } from './components/ui.tsx';
 import { IS_ARTIFACT } from './lib/platform.ts';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 
 const AddFlight = lazy(() => import('./pages/AddFlight.tsx'));
 const Diary = lazy(() => import('./pages/Diary.tsx'));
@@ -32,10 +33,17 @@ export function App() {
   );
 
   useEffect(() => window.scrollTo(0, 0), [pathname]);
+  const navigate = useNavigate();
+  useEffect(() => {
+    const home = () => navigate('/');
+    window.addEventListener('mt-go-home', home);
+    return () => window.removeEventListener('mt-go-home', home);
+  }, [navigate]);
 
   return (
     <div className="app">
       {IS_ARTIFACT && nav}
+      <ErrorBoundary resetKey={pathname}>
       <Suspense fallback={<div className="page" style={{ paddingTop: 80 }}><div className="skeleton" /></div>}>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -47,6 +55,7 @@ export function App() {
           <Route path="*" element={<Home />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
       {!IS_ARTIFACT && nav}
       <Toaster />
     </div>

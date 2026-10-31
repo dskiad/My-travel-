@@ -35,7 +35,7 @@ export function trace(e: string, detail?: unknown) {
 }
 
 if (IS_ARTIFACT && typeof window !== 'undefined') {
-  window.addEventListener('error', (ev) => trace('error', `${ev.message} @${ev.lineno}:${ev.colno}`));
+  window.addEventListener('error', (ev) => trace('error', `${ev.message} @${ev.lineno}:${ev.colno} | ${String((ev.error as Error)?.stack || '').split('\n').slice(0, 5).join(' / ')}`));
   window.addEventListener('unhandledrejection', (ev) => trace('rejection', String((ev.reason as Error)?.message || ev.reason)));
   // Every tap: what was under the finger.
   document.addEventListener('click', (ev) => {
