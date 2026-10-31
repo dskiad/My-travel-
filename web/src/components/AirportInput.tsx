@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef, useState } from 'react';
 import { airport, allAirports, flagEmoji, searchAirports } from '../lib/geo.ts';
+import { trace } from '../lib/diag.ts';
 
 // Without the airport list (it failed to load) a typed 3-letter code still works.
 const asCode = (v: string) => (airport(v) || (!allAirports().length && /^[A-Za-z]{3}$/.test(v.trim())) ? v.trim().toUpperCase() : '');
@@ -13,6 +14,7 @@ export function AirportInput({ value, onChange, placeholder }: { value: string; 
   const settleTimer = useRef<number>();
 
   const pick = (iata: string) => {
+    trace('airport-pick', iata);
     clearTimeout(settleTimer.current);
     onChange(iata);
     setText(iata);

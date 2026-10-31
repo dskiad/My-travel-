@@ -2,6 +2,7 @@
 // their own private subtree of the page's database (data/users/<id>/…), which
 // nobody else can read, the page owner included.
 import { capability } from './platform.ts';
+import { trace } from './diag.ts';
 import type { Flight, Membership, Settings } from './types.ts';
 
 interface DocRef {
@@ -70,7 +71,8 @@ export async function connectCloud(): Promise<CloudStore | null> {
           await flightsCol.doc(id).delete();
           saved.delete(id);
         }
-      }).catch((err) => console.warn('Could not save to your claude.ai storage', err));
+      }).then(() => trace('cloud-saved', { flights: data.flights.length }))
+        .catch((err) => { trace('cloud-save-failed', String((err as { code?: string; message?: string })?.code || '') + ' ' + String((err as Error)?.message || err)); console.warn('Could not save to your claude.ai storage', err); });
     },
   };
 }

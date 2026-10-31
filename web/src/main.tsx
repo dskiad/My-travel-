@@ -5,6 +5,7 @@ import { App } from './App.tsx';
 import { initStore } from './lib/store.ts';
 import { loadReferenceData } from './lib/geo.ts';
 import { IS_ARTIFACT } from './lib/platform.ts';
+import { trace } from './lib/diag.ts';
 import './styles.css';
 
 const root = createRoot(document.getElementById('root')!);
@@ -21,7 +22,8 @@ root.render(
   </div>,
 );
 
-Promise.allSettled([loadReferenceData(), initStore()]).then(() => {
+Promise.allSettled([loadReferenceData(), initStore()]).then((r) => {
+  trace('start', r.map((x) => x.status === 'fulfilled' ? 'ok' : String((x.reason as Error)?.message || x.reason)).join(' | '));
   root.render(
     <StrictMode>
       <Router>

@@ -9,6 +9,7 @@ import { draftIsComplete, parseFlightCode } from '../lib/flights.ts';
 import { airlineName, airport, allAirports } from '../lib/geo.ts';
 import { importCalendar, lookupFlight, readDocument } from '../lib/api.ts';
 import { IS_ARTIFACT } from '../lib/platform.ts';
+import { trace } from '../lib/diag.ts';
 import { GmailPicker } from '../components/GmailPicker.tsx';
 import { emailText, gmailErrorText, TRIPIT_ADDRESS } from '../lib/gmail.ts';
 import { parseFlightCsv } from '../lib/importers/csv.ts';
@@ -44,6 +45,7 @@ export default function AddFlight() {
   const navigate = useNavigate();
 
   const onFound = (drafts: FlightDraft[], src: FlightSource, note?: string) => {
+    trace('found', { n: drafts.length, src, complete: drafts.filter(draftIsComplete).length });
     if (!drafts.length) { toast('No flights found there'); return; }
     setReview({ drafts, source: src, note });
   };
@@ -103,6 +105,7 @@ function ByNumber({ onFound }: { onFound: FoundFn }) {
 
   const look = async () => {
     const parsed = parseFlightCode(code);
+    trace('find', { code, date, parsed, airports: allAirports().length });
     if (!parsed) { setMsg('Enter a flight like A3 600, LH1283 or BA 633'); return; }
     setBusy(true); setMsg('');
     const base: FlightDraft = { ...parsed, date, from: '', to: '', cabin: settings.cabin, source: 'manual' };
@@ -141,6 +144,7 @@ function DraftForm({ draft, note, onBack, onDone }: { draft: FlightDraft; note?:
   const set = (patch: Partial<FlightDraft>) => { setMissing(''); setD((x) => ({ ...x, ...patch })); };
   const submit = () => {
     const need = [!d.from && 'departure airport', !d.to && 'arrival airport'].filter(Boolean);
+    trace('save', { from: d.from, to: d.to, date: d.date, complete: draftIsComplete(d), need });
     if (need.length) { setMissing(`Choose the ${need.join(' and ')} from the suggestions.`); return; }
     if (draftIsComplete(d)) onDone(d);
   };
@@ -456,6 +460,7 @@ function Review({ drafts, source, note, onCancel, onSaved }: {
 
   const save = () => {
     const chosen = valid.filter((_, i) => picked.has(i));
+    trace('add-to-diary', { chosen: chosen.length, valid: valid.length });
     const { added, updated } = addFlights(chosen, source);
     toast(`${added} added${updated ? `, ${updated} updated` : ''}`);
     const only = chosen.length === 1 && getState().flights.find((f) => f.airline === chosen[0].airline && f.flightNumber === chosen[0].flightNumber && f.date === chosen[0].date);
