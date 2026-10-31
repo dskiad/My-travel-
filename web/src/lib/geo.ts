@@ -22,10 +22,9 @@ let airlineByName: Record<string, string> = {};
 /** Load bundled datasets (cached by the service worker after first use). */
 export async function loadReferenceData(base = '/data') {
   // The claude.ai page version embeds the datasets in the page itself.
-  const embedded = typeof document !== 'undefined' && document.getElementById('mt-data')?.textContent;
+  const embedded = (globalThis as { __MT_DATA__?: { airports: Record<string, AirportRow>; airlines: Record<string, [string, string, string]>; icao: Record<string, string> } }).__MT_DATA__;
   if (embedded) {
-    const d = JSON.parse(embedded);
-    setReferenceData(d.airports, d.airlines, d.icao);
+    setReferenceData(embedded.airports, embedded.airlines, embedded.icao);
     return;
   }
   const json = (name: string) => fetch(`${base}/${name}`).then((r) => r.json());

@@ -6,7 +6,7 @@ import { formatDate } from '../components/FlightCard.tsx';
 import { Field, toast } from '../components/ui.tsx';
 import { addFlights, getState, saveSettings, useStore } from '../lib/store.ts';
 import { draftIsComplete, parseFlightCode } from '../lib/flights.ts';
-import { airlineName, airport } from '../lib/geo.ts';
+import { airlineName, airport, allAirports } from '../lib/geo.ts';
 import { importCalendar, lookupFlight, readDocument } from '../lib/api.ts';
 import { IS_ARTIFACT } from '../lib/platform.ts';
 import { GmailPicker } from '../components/GmailPicker.tsx';
@@ -71,6 +71,11 @@ export default function AddFlight() {
           </button>
         ))}
       </div>
+      {allAirports().length === 0 && (
+        <div className="notice error" role="alert" style={{ marginTop: 12 }}>
+          The airport list didn’t load, so airports can’t be chosen. Close this page completely and open it again.
+        </div>
+      )}
       <section className="section card" ref={formRef}>
         {source === 'number' && <ByNumber onFound={onFound} />}
         {source === 'scan' && <ByScan onFound={onFound} />}
