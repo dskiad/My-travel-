@@ -3,6 +3,7 @@
 // turns emails sent to plans@tripit.com from a registered address into trips.
 import { IS_ARTIFACT, capability } from './platform.ts';
 import type { Flight } from './types.ts';
+import { getState } from './store.ts';
 
 export const TRIPIT_ADDRESS = 'plans@tripit.com';
 const SERVER = 'Gmail';
@@ -36,6 +37,7 @@ export function gmailErrorText(e: unknown): string {
     case 'approval_required': return 'This needs your approval. Tap the button again and choose Allow when claude.ai asks.';
     case 'blocked_by_policy': return 'Your organization doesn’t allow this page to use Gmail.';
     case 'server_unavailable': return 'Gmail didn’t answer just now. Try again in a minute.';
+    case 'wrong_mailbox': return err.message || 'Wrong Gmail account connected.';
     case 'tool_error': return `Gmail reported a problem: ${err.message || 'unknown error'}`;
     default: return err.message ? `Gmail request failed: ${err.message}` : 'Gmail request failed. Try again in a minute.';
   }
@@ -79,6 +81,7 @@ export const LOYALTY_QUERY =
 
 /** Booking emails, newest first. `query` narrows it (e.g. a PNR). */
 export async function searchBookingEmails(query = BOOKING_QUERY): Promise<MailThread[]> {
+  await checkMailbox();
   const payload = await call('search_threads', { query, pageSize: 20, view: 'THREAD_VIEW_MINIMAL' });
   const threads = (Array.isArray(payload.threads) ? payload.threads : []) as Record<string, unknown>[];
   return threads.map(toThread).filter((t): t is MailThread => Boolean(t && t.messageId));
@@ -95,6 +98,22 @@ export async function mailboxAddress(): Promise<string> {
 }
 
 export const CONNECTORS_URL = 'https://claude.ai/customize/connectors';
+
+/** The inbox the viewer chose in Profile; searches anywhere else are refused. */
+export const requiredMailbox = () => (getState().settings.gmailAccount || '').trim().toLowerCase();
+
+async function checkMailbox() {
+  const want = requiredMailbox();
+  if (!want) return;
+  const have = await mailboxAddress();
+  if (have === want) return;
+  throw {
+    code: 'wrong_mailbox',
+    message: have
+      ? `The Gmail connected to Claude is ${have}, but this app only searches ${want}. In claude.ai → Connectors, disconnect Gmail and connect it again with ${want}.`
+      : `Could not confirm that the connected Gmail is ${want}, so nothing was searched. In claude.ai → Connectors, connect Gmail with ${want}.`,
+  };
+}
 
 /** Emails most likely to be this flight's booking: by PNR, then flight number. */
 export function queryForFlight(f: Pick<Flight, 'pnr' | 'airline' | 'flightNumber'>): string {
