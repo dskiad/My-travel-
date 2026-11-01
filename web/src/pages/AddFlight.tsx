@@ -377,8 +377,8 @@ function ByGmail({ onFound }: { onFound: FoundFn }) {
   };
   return (
     <div className="stack">
-      <p className="small muted">Finds airline and travel-agency booking emails in your Gmail. Nothing is read until you pick one, and the first time claude.ai asks you to allow Gmail for this page.</p>
-      <GmailPicker searchLabel="Find my booking emails" pickLabel="Import" busy={busy} onPick={(t) => pick(t.threadId)} />
+      <p className="small muted">Finds your flight and hotel booking emails (Let’s Tour, Aegean and all airlines and hotels) and shows each trip’s route and dates. Nothing is read until you pick one, and the first time claude.ai asks you to allow Gmail for this page.</p>
+      <GmailPicker describe searchLabel="Find my booking emails" pickLabel="Import" busy={busy} onPick={(t) => pick(t.threadId)} />
       {error && <div className="notice error small" role="alert">{error}</div>}
       <How title="Also add them to TripIt">
         <ol><li>Open an imported flight and tap <b>Send to TripIt</b>. Its booking email is forwarded from your Gmail to {TRIPIT_ADDRESS}.</li><li>TripIt only accepts emails from addresses on your TripIt account: check TripIt → Settings → Email addresses.</li></ol>

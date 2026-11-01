@@ -109,3 +109,23 @@ test('matches card names to loyalty programmes', async () => {
   assert.equal(matchProgram('Club', '')?.id, undefined);
   assert.equal(matchProgram('Some Local Gym', '')?.id, undefined);
 });
+
+test('mail summaries show route and dates', async () => {
+  const { quickSummary } = await import('../web/src/lib/mailSummary.ts');
+  const sent = '2026-10-30T19:05:36Z';
+  const body = '* Thursday, 05 November *\n*Departure:* EDI EDINBURGH, UNITED KINGDOM\n*Arrival:* AMS AMSTERDAM, NETHERLANDS\n* Thursday, 05 November *\n*Departure:* AMS AMSTERDAM, NETHERLANDS\n*Arrival:* TLS TOULOUSE, FRANCE\n';
+  assert.deepEqual(quickSummary('Fwd: Travel Reservation to TOULOUSE, FRANCE on November 05', body, sent),
+    { kind: 'flight', title: 'Edinburgh → Amsterdam → Toulouse', dates: '5 Nov 2026', cancelled: false });
+  assert.equal(quickSummary('SKIADOPOULOS/DIMITRIOS MR 21JAN2027 ATH AMS', '', sent)?.dates, '21 Jan 2027');
+  assert.equal(quickSummary('Κράτηση | Από Turin προς Athens την 13 Δεκεμβρίου 2026', '', sent)?.title, 'Turin → Athens');
+  const h = quickSummary('Ευχαριστούμε! Η κράτηση στο Best Western Plus Hotel Bern επιβεβαιώθηκε', 'Check-in 15 Δεκεμβρίου 2026, check-out 18 Δεκεμβρίου 2026', sent);
+  assert.equal(h?.kind, 'hotel'); assert.equal(h?.title, 'Best Western Plus Hotel Bern'); assert.equal(h?.dates, '15–18 Dec 2026');
+  assert.equal(quickSummary('Ακυρώθηκε η κράτησή σας στο Tirana International Hotel', '', sent)?.cancelled, true);
+});
+
+test('mail summaries read Aegean confirmations', async () => {
+  const { quickSummary } = await import('../web/src/lib/mailSummary.ts');
+  const body = '| ## Αναχώρηση |\n| Παρασκευή 11.Δεκ 08:35 Αθήνα - 10:10 Μιλάνο | |\n| ## Επιστροφή |\n| Δευτέρα 14.Δεκ 11:00 Μιλάνο - 14:30 Αθήνα | |\n';
+  assert.deepEqual(quickSummary('AEGEAN AIRLINES S.A. - Booking Confirmation', body, '2026-10-19T21:50:29Z'),
+    { kind: 'flight', title: 'Αθήνα → Μιλάνο → Αθήνα', dates: '11–14 Dec 2026', cancelled: false });
+});

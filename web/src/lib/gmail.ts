@@ -70,9 +70,13 @@ function toThread(t: Record<string, unknown>): MailThread | null {
 
 // Gmail's own travel category, or any email that talks about a flight booking
 // (subject or body), including travel-agency itineraries.
+// Travel agents and airlines the traveller books with come first, then any
+// airline or hotel reservation (English or Greek wording).
+export const TRUSTED_SENDERS = ['letstour.gr', 'aegeanair.com', 'aegean.com', 'olympicair.com'];
 export const BOOKING_QUERY =
-  '(category:reservations OR ((flight OR flights OR airline OR airways OR "e-ticket" OR eticket OR itinerary OR "boarding pass" OR PNR OR "booking reference") ' +
-  '(confirmation OR booking OR itinerary OR ticket OR reservation OR "check-in"))) -in:sent newer_than:2y';
+  '(' + TRUSTED_SENDERS.map((d) => `from:${d}`).join(' OR ') + ' OR category:reservations OR from:booking.com OR ' +
+  '((flight OR flights OR airline OR airlines OR airways OR "e-ticket" OR eticket OR itinerary OR "boarding pass" OR PNR OR "record locator" OR hotel OR stay OR πτήση OR ξενοδοχείο) ' +
+  '(confirmation OR confirmed OR booking OR itinerary OR ticket OR reservation OR "check-in" OR receipt OR κράτηση OR επιβεβαίωση))) -in:sent newer_than:3y';
 
 export const LOYALTY_QUERY =
   '("Miles+Bonus" OR "Miles & More" OR "Flying Blue" OR "Executive Club" OR "British Airways Club" OR AAdvantage OR SkyMiles OR MileagePlus OR ' +
@@ -82,7 +86,7 @@ export const LOYALTY_QUERY =
 /** Booking emails, newest first. `query` narrows it (e.g. a PNR). */
 export async function searchBookingEmails(query = BOOKING_QUERY): Promise<MailThread[]> {
   await checkMailbox();
-  const payload = await call('search_threads', { query, pageSize: 20, view: 'THREAD_VIEW_MINIMAL' });
+  const payload = await call('search_threads', { query, pageSize: 40, view: 'THREAD_VIEW_SUMMARY' });
   const threads = (Array.isArray(payload.threads) ? payload.threads : []) as Record<string, unknown>[];
   return threads.map(toThread).filter((t): t is MailThread => Boolean(t && t.messageId));
 }
