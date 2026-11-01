@@ -3,6 +3,8 @@ import { logoUrls } from '../lib/airlines.ts';
 import { programOf, type Program } from '../lib/loyalty.ts';
 import type { Membership } from '../lib/types.ts';
 import { IS_ARTIFACT } from '../lib/platform.ts';
+import { embeddedLogo } from '../lib/logos.ts';
+import { tierLook } from '../lib/loyalty.ts';
 
 export function formatMemberNumber(n: string) {
   const clean = n.replace(/\s+/g, '');
@@ -10,7 +12,7 @@ export function formatMemberNumber(n: string) {
 }
 
 function programLogos(p: Program): string[] {
-  if (IS_ARTIFACT) return [];
+  if (IS_ARTIFACT) return [embeddedLogo(p.airlines?.[0])].filter((u): u is string => !!u);
   const urls = p.airlines?.length ? logoUrls(p.airlines[0]) : [];
   if (p.domain) urls.push(`https://www.google.com/s2/favicons?domain=${p.domain}&sz=128`);
   return urls;
@@ -30,12 +32,14 @@ export function ProgramLogo({ program, className = 'mc-logo' }: { program: Progr
 
 export function MemberCard({ membership, onClick }: { membership: Membership; onClick?: () => void }) {
   const p = programOf(membership);
-  const ink = p.ink || '#fff';
+  // Elite cards look like the real thing: gold, silver, platinum, diamond or black.
+  const look = tierLook(membership.tier);
+  const ink = look?.ink || p.ink || '#fff';
   return (
     <button
-      className="member-card"
+      className={`member-card${look ? ` tier-${look.id}` : ''}`}
       onClick={onClick}
-      style={{ background: `linear-gradient(135deg, ${p.color}, color-mix(in srgb, ${p.color} 55%, #000))`, color: ink }}
+      style={{ background: look?.background || `linear-gradient(135deg, ${p.color}, color-mix(in srgb, ${p.color} 55%, #000))`, color: ink }}
     >
       <div className="mc-top">
         <ProgramLogo program={p} />

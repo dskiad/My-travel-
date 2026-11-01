@@ -52,7 +52,7 @@ ${safe(read('.css'))}
 <div id="root"></div>
 <script>${showErrors}</script>
 <script>window.__MT_DATA__ = ${safe(JSON.stringify({
-  airports: data('airports.json'), airlines: data('airlines.json'), icao: data('airport-icao.json'),
+  airports: data('airports.json'), airlines: data('airlines.json'), icao: data('airport-icao.json'), logos: data('logos.json'),
 }))};</script>
 <script>
 ${safe(read('.js'))}
