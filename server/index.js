@@ -158,6 +158,7 @@ app.post('/api/briefing', route(async (req) => {
     passport: String(req.body.passport || 'Greece').slice(0, 60),
     cabin: flight.cabin,
     status: req.body.loyaltyStatus ? String(req.body.loyaltyStatus).slice(0, 500) : null,
+    language: req.body.language === 'el' ? 'el' : 'en',
   });
   return { briefing, liveStatus };
 }));

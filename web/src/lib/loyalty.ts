@@ -19,6 +19,28 @@ export interface Program {
 const A = 'airline' as const;
 const H = 'hotel' as const;
 
+export interface TierLook { id: 'gold' | 'silver' | 'platinum' | 'diamond' | 'black'; background: string; ink: string }
+
+const LOOKS: Record<TierLook['id'], TierLook> = {
+  gold: { id: 'gold', ink: '#3a2a05', background: 'linear-gradient(135deg, #9a7420 0%, #e9cd78 32%, #b88a2c 58%, #f6e3a1 80%, #a77d24 100%)' },
+  silver: { id: 'silver', ink: '#1d232b', background: 'linear-gradient(135deg, #8e979f 0%, #e6eaee 35%, #a9b1b9 60%, #f4f6f8 82%, #959ea7 100%)' },
+  platinum: { id: 'platinum', ink: '#1f2328', background: 'linear-gradient(135deg, #6d7279 0%, #d9dcdf 38%, #9da3a9 62%, #eceef0 84%, #7c8187 100%)' },
+  diamond: { id: 'diamond', ink: '#f2f7ff', background: 'linear-gradient(135deg, #10233f 0%, #3d6a9e 40%, #1b3557 66%, #8fb6e0 88%, #1a3050 100%)' },
+  black: { id: 'black', ink: '#e9cd78', background: 'linear-gradient(135deg, #050505 0%, #2b2b2b 45%, #0d0d0d 70%, #3a3a3a 100%)' },
+};
+
+/** Card colours for an elite tier ("Gold", "Senator", "Elite Plus" …), or null for a basic card. */
+export function tierLook(tier?: string): TierLook | null {
+  const t = (tier || '').toLowerCase();
+  if (!t) return null;
+  if (/hon circle|elite plus|black|1k|concierge|chairman|invitation/.test(t)) return LOOKS.black;
+  if (/diamond/.test(t)) return LOOKS.diamond;
+  if (/platinum|platin/.test(t)) return LOOKS.platinum;
+  if (/gold|senator|\belite\b|premier/.test(t)) return LOOKS.gold;
+  if (/silver|frequent traveller|classic plus/.test(t)) return LOOKS.silver;
+  return null;
+}
+
 export const PROGRAMS: Program[] = [
   { id: 'milesbonus', name: 'Miles+Bonus', brand: 'Aegean', kind: A, color: '#0d3d84', airlines: ['A3', 'OA'], alliance: 'Star Alliance', domain: 'aegeanair.com', tiers: ['Red', 'Blue', 'Silver', 'Gold', 'Diamond'] },
   { id: 'milesandmore', name: 'Miles & More', brand: 'Lufthansa Group', kind: A, color: '#05164d', airlines: ['LH', 'LX', 'OS', 'SN', 'LO', 'EW'], alliance: 'Star Alliance', domain: 'miles-and-more.com', tiers: ['Member', 'Frequent Traveller', 'Senator', 'HON Circle'] },

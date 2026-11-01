@@ -46,9 +46,11 @@ const [ourCsv, mwggJson, airlinesDat] = await Promise.all([
 
 const tzByIcao = new Map();
 const tzByIata = new Map();
+const servedCity = new Map(); // mwgg's city: usually the city the airport serves
 for (const a of Object.values(JSON.parse(mwggJson))) {
   if (a.icao) tzByIcao.set(a.icao, a.tz);
   if (a.iata) tzByIata.set(a.iata, a.tz);
+  if (a.iata && a.city) servedCity.set(a.iata, a.city);
 }
 
 // Municipality names that differ from the city travellers know.
@@ -68,8 +70,47 @@ const CITY = {
   AEP: 'Buenos Aires', SCL: 'Santiago', LIM: 'Lima', BOG: 'Bogotá', JTR: 'Santorini', CFU: 'Corfu',
   EFL: 'Kefalonia', ZTH: 'Zakynthos', CHQ: 'Chania', KGS: 'Kos', JMK: 'Mykonos', PVK: 'Preveza',
   LGW: 'London', ORY: 'Paris', CDG: 'Paris', OSL: 'Oslo', HEL: 'Helsinki', MEL: 'Melbourne',
+  // Airports named after neither their municipality nor a city in the data.
+  TRN: 'Turin', FLR: 'Florence', GOA: 'Genoa', FRA: 'Frankfurt', HHN: 'Frankfurt', DJE: 'Djerba',
+  FUE: 'Fuerteventura', ACE: 'Lanzarote', MAH: 'Menorca', IBZ: 'Ibiza', MRU: 'Mauritius', SEZ: 'Mahé',
+  RUN: 'Saint-Denis', ZNZ: 'Zanzibar', PLZ: 'Gqeberha', LLW: 'Lilongwe', SHO: 'Manzini', BKO: 'Bamako',
+  RHO: 'Rhodes', CFU: 'Corfu', ECN: 'Nicosia', NOC: 'Knock', OVD: 'Asturias', LAQ: 'Al Bayda',
+  DSS: 'Dakar', SPX: 'Giza', PIE: 'St. Petersburg', DXN: 'Noida', GJL: 'Jijel', OUD: 'Oujda', BEM: 'Beni Mellal',
+  JKH: 'Chios', JSH: 'Sitia', VOL: 'Volos', MJT: 'Mytilene', LXS: 'Lemnos', SKU: 'Skyros',
+  TOM: 'Timbuktu', LAE: 'Lae', VST: 'Västerås', RAB: 'Kokopo', HKN: 'Kimbe', DDR: 'Shigatse', FKB: 'Karlsruhe', PAD: 'Paderborn', KSF: 'Kassel',
 };
-const cleanCity = (iata, city) => CITY[iata] || city.replace(/\s*\(.*\)\s*/g, '').replace(/,.*$/, '').trim();
+const tidy = (city) => city.replace(/\s*\(.*\)\s*/g, '').replace(/,.*$/, '').split('/')[0].trim();
+const noIsland = (city) => city.replace(/\s+Island$/i, '');
+const fold = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+/** The same words as `city` written the way the airport name writes them ("Krakow" → "Kraków"). */
+function inName(name, city) {
+  if (!city) return '';
+  const f = fold(city);
+  const words = name.split(/[\s\-–/,]+/);
+  for (let i = 0; i < words.length; i++) {
+    for (let j = i + 1; j <= words.length; j++) {
+      const w = words.slice(i, j).join(' ');
+      if (fold(w) === f) return w;
+    }
+  }
+  return '';
+}
+/**
+ * The city travellers know. OurAirports' municipality is often the small
+ * place the airport sits in (Edinburgh → "Ingliston", Kraków → "Balice"), so:
+ * a hand-checked name first; then the municipality when the airport is named
+ * after it; then the served city from mwgg when the airport is named after
+ * that ("Edinburgh Airport"); otherwise the municipality.
+ */
+function cleanCity(iata, municipality, name) {
+  if (CITY[iata]) return CITY[iata];
+  const own = tidy(municipality);
+  if (inName(name, own)) return own;
+  const ownShort = noIsland(own); // "Chios Island" → "Chios" when the airport says so
+  if (ownShort !== own && inName(name, ownShort)) return ownShort;
+  const served = inName(name, noIsland(tidy(servedCity.get(iata) || '')));
+  return served || own;
+}
 
 const SIZE = { large_airport: 3, medium_airport: 2, small_airport: 1 };
 const airports = {};
@@ -91,7 +132,7 @@ for (const line of lines.slice(1)) {
   const prev = airports[iata];
   if (prev && prev[6] >= size) continue;
   airports[iata] = [
-    r[col.name], cleanCity(iata, r[col.municipality]), r[col.iso_country],
+    r[col.name], cleanCity(iata, r[col.municipality], r[col.name]), r[col.iso_country],
     round(+r[col.latitude_deg]), round(+r[col.longitude_deg]), tz, size,
   ];
 }

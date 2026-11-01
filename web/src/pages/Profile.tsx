@@ -62,6 +62,12 @@ export default function Profile() {
             </select>
           </Field>
         </div>
+        <Field label="Briefing language (γλώσσα ενημέρωσης)">
+          <select className="input" value={settings.language || 'en'} onChange={(e) => saveSettings({ language: e.target.value as 'el' | 'en' })}>
+            <option value="el">Ελληνικά (English travel terms with Greek in brackets)</option>
+            <option value="en">English</option>
+          </select>
+        </Field>
         {IS_ARTIFACT && (
           <Field label="Gmail to search">
             <input className="input" type="email" inputMode="email" autoComplete="email" value={settings.gmailAccount || ''}

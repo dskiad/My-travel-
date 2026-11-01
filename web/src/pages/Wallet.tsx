@@ -160,7 +160,7 @@ function EditSheet({ value, onClose }: { value: Editing; onClose: () => void }) 
           <Field label="Status / tier">
             {program?.tiers ? (
               <select className="input" value={m.tier || ''} onChange={(e) => set({ tier: e.target.value })}>
-                <option value="">—</option>{program.tiers.map((t) => <option key={t}>{t}</option>)}
+                <option value="">—</option>{[...program.tiers, ...(m.tier && !program.tiers.includes(m.tier) ? [m.tier] : [])].map((t) => <option key={t}>{t}</option>)}
               </select>
             ) : <input className="input" value={m.tier || ''} onChange={(e) => set({ tier: e.target.value })} placeholder="Gold" />}
           </Field>

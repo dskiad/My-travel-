@@ -56,7 +56,7 @@ export default function FlightDetail() {
   const loadBriefing = async (f: Flight) => {
     setLoading(true); setError('');
     try {
-      const { briefing, liveStatus } = await getBriefing(f, settings.passport, statusSummary(memberships));
+      const { briefing, liveStatus } = await getBriefing(f, settings.passport, statusSummary(memberships), settings.language || 'en');
       updateFlight(f.id, { briefing, liveStatus });
       lastStatus.current = liveStatus;
     } catch (e) {
@@ -155,7 +155,10 @@ export default function FlightDetail() {
         </div>
         {error && <div className="notice error">{error}</div>}
         {loading && !b && <BriefingSkeleton />}
-        {b && <BriefingView briefing={b} passport={settings.passport} />}
+        {b && (b.lang || 'en') !== (settings.language || 'en') && (
+          <div className="notice small">{settings.language === 'el' ? 'Αυτό το briefing (ενημέρωση) είναι στα αγγλικά. Πάτα ↻ Refresh (ανανέωση) για να γραφτεί στα ελληνικά.' : 'This briefing is in Greek. Tap ↻ Refresh briefing to get it in English.'}</div>
+        )}
+        {b && <BriefingView briefing={b} passport={settings.passport} el={(b.lang || 'en') === 'el'} />}
       </div>
 
       {editing && <EditFlight flight={flight} onClose={() => setEditing(false)} onDelete={() => { deleteFlight(flight.id); toast('Flight deleted'); navigate('/diary'); }} />}
@@ -220,67 +223,82 @@ function BriefingSkeleton() {
 
 const MODE_ICON: Record<string, string> = { train: '🚆', metro: '🚇', bus: '🚌', taxi: '🚕', rideshare: '🚗', shuttle: '🚐' };
 
-function BriefingView({ briefing: b, passport }: { briefing: Briefing; passport: string }) {
+const EL_TEXT = {
+  offline: 'Ετοιμάστηκε από τον Claude με όσα γνωρίζει, χωρίς live (ζωντανή) αναζήτηση στο web. Επιβεβαίωσε Gate (Πύλη), ώρες Lounge (Αίθουσας αναμονής) και απεργίες με την αεροπορική και το αεροδρόμιο πριν ταξιδέψεις.',
+  lounges: '🛋️ Lounges (Αίθουσες αναμονής) κοντά στο Gate (Πύλη)', closest: 'Πιο κοντά', near: 'κοντά στα Gates (Πύλες)',
+  noLounge: 'Δεν βρέθηκε Lounge (Αίθουσα αναμονής) με πρόσβαση για σένα σε αυτό το αεροδρόμιο.',
+  disruptions: '⚠️ Απεργίες & αναστατώσεις', noDisruptions: '✅ Δεν αναφέρεται τίποτα για τις ημερομηνίες του ταξιδιού σου.',
+  entry: (p: string) => `🛂 Κανόνες εισόδου · διαβατήριο ${p === 'Greece' ? 'Ελλάδας' : p}`, visa: 'Visa (Θεώρηση)', official: 'Επίσημη πηγή ↗',
+  transport: '🚕 Μετά την προσγείωση: προς την πόλη', recommended: 'Προτείνεται', noTransport: 'Δεν βρέθηκαν πληροφορίες μετακίνησης.',
+  tips: '💡 Συμβουλές', sources: 'Πηγές', updated: 'Ενημερώθηκε', confirm: 'Επιβεβαίωνε πάντα το Gate (Πύλη) στις οθόνες του αεροδρομίου.',
+};
+const EL_VALUE: Record<string, string> = {
+  yes: 'Ναι', no: 'Όχι', conditional: 'Με προϋποθέσεις', unknown: 'άγνωστο',
+  strike: 'Απεργία', weather: 'Καιρός', airport: 'Αεροδρόμιο', airline: 'Αεροπορική', other: 'Άλλο',
+};
+
+function BriefingView({ briefing: b, passport, el = false }: { briefing: Briefing; passport: string; el?: boolean }) {
   const e = b.entryRequirements || {};
+  const v = (x?: string) => (el && x ? EL_VALUE[x.toLowerCase()] || x : x);
   const visaClass = ({ no: 'good', yes: 'bad', conditional: 'warn' } as Record<string, string>)[String(e.visaRequired).toLowerCase()] || '';
   return (
     <>
       {b.offline && (
-        <div className="notice warn small">Prepared by Claude from what it knows, without live web research or live flight data. Check gates, lounge hours and strike news with the airline and airport before you travel.</div>
+        <div className="notice warn small">{el ? EL_TEXT.offline : 'Prepared by Claude from what it knows, without live web research or live flight data. Check gates, lounge hours and strike news with the airline and airport before you travel.'}</div>
       )}
       <section className="card">
-        <h2 style={{ marginBottom: 8 }}>🛋️ Lounges near your gate</h2>
+        <h2 style={{ marginBottom: 8 }}>{el ? EL_TEXT.lounges : '🛋️ Lounges near your gate'}</h2>
         {b.lounges?.length ? b.lounges.map((l, i) => (
           <div key={i} className="brief-item">
-            <div className="spread"><b>{l.name}</b>{i === 0 && <span className="pill good">Closest</span>}</div>
-            <span className="small muted">{[l.terminal, l.location, l.nearGates && `near gates ${l.nearGates}`].filter(Boolean).join(' · ')}</span>
+            <div className="spread"><b>{l.name}</b>{i === 0 && <span className="pill good">{el ? EL_TEXT.closest : 'Closest'}</span>}</div>
+            <span className="small muted">{[l.terminal, l.location, l.nearGates && `${el ? EL_TEXT.near : 'near gates'} ${l.nearGates}`].filter(Boolean).join(' · ')}</span>
             {l.walkFromGate && <span className="small">🚶 {l.walkFromGate}</span>}
             {l.hours && <span className="small">🕒 {l.hours}</span>}
             {l.access && <span className="small">🎫 {l.access}</span>}
             {l.notes && <span className="small muted">{l.notes}</span>}
           </div>
-        )) : <p className="small muted">No lounge you can access was found at this airport.</p>}
+        )) : <p className="small muted">{el ? EL_TEXT.noLounge : 'No lounge you can access was found at this airport.'}</p>}
       </section>
 
       <section className="card">
-        <h2 style={{ marginBottom: 8 }}>⚠️ Strikes & disruptions</h2>
+        <h2 style={{ marginBottom: 8 }}>{el ? EL_TEXT.disruptions : '⚠️ Strikes & disruptions'}</h2>
         {b.disruptions?.length ? b.disruptions.map((d, i) => (
           <div key={i} className="brief-item">
-            <div className="spread"><b>{d.title}</b><span className={`pill ${d.severity === 'critical' ? 'bad' : d.severity === 'warning' ? 'warn' : ''}`}>{d.type}</span></div>
+            <div className="spread"><b>{d.title}</b><span className={`pill ${d.severity === 'critical' ? 'bad' : d.severity === 'warning' ? 'warn' : ''}`}>{v(d.type)}</span></div>
             {d.dates && <span className="small muted">{d.dates}</span>}
             {d.details && <span className="small">{d.details}</span>}
           </div>
-        )) : <p className="small muted">✅ Nothing reported for your travel dates.</p>}
+        )) : <p className="small muted">{el ? EL_TEXT.noDisruptions : '✅ Nothing reported for your travel dates.'}</p>}
       </section>
 
       <section className="card stack">
-        <h2>🛂 Entry rules · {passport} passport</h2>
-        <div className="row"><span className={`pill ${visaClass}`}>Visa: {e.visaRequired || 'unknown'}</span><span className="small">{e.destinationCountry}</span></div>
+        <h2>{el ? EL_TEXT.entry(passport) : `🛂 Entry rules · ${passport} passport`}</h2>
+        <div className="row"><span className={`pill ${visaClass}`}>{el ? EL_TEXT.visa : 'Visa'}: {v(e.visaRequired || 'unknown')}</span><span className="small">{e.destinationCountry}</span></div>
         {e.summary && <p className="small">{e.summary}</p>}
         {!!e.requirements?.length && <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{e.requirements.filter(Boolean).map((r, i) => <li key={i}>{r}</li>)}</ul>}
-        {e.officialLink && <a className="small" href={e.officialLink} target="_blank" rel="noopener noreferrer">Official source ↗</a>}
+        {e.officialLink && <a className="small" href={e.officialLink} target="_blank" rel="noopener noreferrer">{el ? EL_TEXT.official : 'Official source ↗'}</a>}
       </section>
 
       <section className="card">
-        <h2 style={{ marginBottom: 8 }}>🚕 After landing: into the city</h2>
+        <h2 style={{ marginBottom: 8 }}>{el ? EL_TEXT.transport : '🚕 After landing: into the city'}</h2>
         {b.groundTransport?.length ? b.groundTransport.map((t, i) => (
           <div key={i} className="brief-item">
-            <div className="spread"><b>{MODE_ICON[t.mode || ''] || '➡️'} {t.name}</b>{t.recommended && <span className="pill good">Recommended</span>}</div>
+            <div className="spread"><b>{MODE_ICON[t.mode || ''] || '➡️'} {t.name}</b>{t.recommended && <span className="pill good">{el ? EL_TEXT.recommended : 'Recommended'}</span>}</div>
             {t.where && <span className="small">📍 {t.where}</span>}
             <span className="small muted">{[t.duration && `⏱ ${t.duration}`, t.price && `💶 ${t.price}`, t.frequency && `🔁 ${t.frequency}`].filter(Boolean).join('   ')}</span>
             {t.notes && <span className="small muted">{t.notes}</span>}
           </div>
-        )) : <p className="small muted">No transport information found.</p>}
+        )) : <p className="small muted">{el ? EL_TEXT.noTransport : 'No transport information found.'}</p>}
       </section>
 
       {!!b.tips?.length && (
-        <section className="card"><h2 style={{ marginBottom: 8 }}>💡 Tips</h2><ul className="small" style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>{b.tips.filter(Boolean).map((t, i) => <li key={i}>{t}</li>)}</ul></section>
+        <section className="card"><h2 style={{ marginBottom: 8 }}>{el ? EL_TEXT.tips : '💡 Tips'}</h2><ul className="small" style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>{b.tips.filter(Boolean).map((t, i) => <li key={i}>{t}</li>)}</ul></section>
       )}
 
       <details className="card how">
-        <summary>Sources ({b.sources?.length || 0})</summary>
+        <summary>{el ? EL_TEXT.sources : 'Sources'} ({b.sources?.length || 0})</summary>
         <ul className="small" style={{ paddingLeft: 18, wordBreak: 'break-word' }}>{b.sources?.map((s) => <li key={s.url}><a href={s.url} target="_blank" rel="noopener noreferrer">{s.title}</a></li>)}</ul>
-        <p className="tiny faint">Updated {new Date(b.generatedAt).toLocaleString()}. Always confirm gates on airport screens.</p>
+        <p className="tiny faint">{el ? `${EL_TEXT.updated} ${new Date(b.generatedAt).toLocaleString('el-GR')}. ${EL_TEXT.confirm}` : `Updated ${new Date(b.generatedAt).toLocaleString()}. Always confirm gates on airport screens.`}</p>
       </details>
     </>
   );
