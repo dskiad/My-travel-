@@ -129,3 +129,12 @@ test('mail summaries read Aegean confirmations', async () => {
   assert.deepEqual(quickSummary('AEGEAN AIRLINES S.A. - Booking Confirmation', body, '2026-10-19T21:50:29Z'),
     { kind: 'flight', title: 'Αθήνα → Μιλάνο → Αθήνα', dates: '11–14 Dec 2026', cancelled: false });
 });
+
+test('airport cities are the cities travellers know', async () => {
+  const data = JSON.parse(fs.readFileSync('web/public/data/airports.json', 'utf8'));
+  const city = (c: string) => data[c][1];
+  for (const [code, want] of [['EDI', 'Edinburgh'], ['KRK', 'Kraków'], ['ZAG', 'Zagreb'], ['TLS', 'Toulouse'], ['TRN', 'Turin'],
+    ['MRS', 'Marseille'], ['TIA', 'Tirana'], ['LJU', 'Ljubljana'], ['ATH', 'Athens'], ['MXP', 'Milan'], ['AMS', 'Amsterdam'], ['JKH', 'Chios']]) {
+    assert.equal(city(code), want, code);
+  }
+});
