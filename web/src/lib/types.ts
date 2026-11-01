@@ -58,6 +58,8 @@ export interface Settings {
   calendarUrl: string;
   /** Only this Gmail inbox may be searched for bookings ('' = any). */
   gmailAccount?: string;
+  /** Gmail threads whose flights are already in the diary (newest last). */
+  importedEmails?: string[];
 }
 
 export interface LiveSide {

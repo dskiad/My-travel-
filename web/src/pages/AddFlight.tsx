@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AirportInput } from '../components/AirportInput.tsx';
 import { AirlineLogo } from '../components/AirlineLogo.tsx';
 import { formatDate } from '../components/FlightCard.tsx';
 import { Field, toast } from '../components/ui.tsx';
-import { addFlights, getState, saveSettings, useStore } from '../lib/store.ts';
+import { addFlights, getState, importedEmailIds, markEmailsImported, saveSettings, useStore } from '../lib/store.ts';
 import { draftIsComplete, parseFlightCode } from '../lib/flights.ts';
 import { airlineName, airport, allAirports } from '../lib/geo.ts';
 import { importCalendar, lookupFlight, readDocument } from '../lib/api.ts';
@@ -41,13 +41,13 @@ export default function AddFlight() {
   useEffect(() => {
     if (scrollTick) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [scrollTick]);
-  const [review, setReview] = useState<{ drafts: FlightDraft[]; source: FlightSource; note?: string } | null>(null);
+  const [review, setReview] = useState<{ drafts: FlightDraft[]; source: FlightSource; note?: string; emails?: string[] } | null>(null);
   const navigate = useNavigate();
 
-  const onFound = (drafts: FlightDraft[], src: FlightSource, note?: string) => {
+  const onFound = (drafts: FlightDraft[], src: FlightSource, note?: string, emails?: string[]) => {
     trace('found', { n: drafts.length, src, complete: drafts.filter(draftIsComplete).length });
     if (!drafts.length) { toast('No flights found there'); return; }
-    setReview({ drafts, source: src, note });
+    setReview({ drafts, source: src, note, emails });
   };
 
   if (review) {
@@ -91,7 +91,7 @@ export default function AddFlight() {
   );
 }
 
-type FoundFn = (drafts: FlightDraft[], src: FlightSource, note?: string) => void;
+type FoundFn = (drafts: FlightDraft[], src: FlightSource, note?: string, emails?: string[]) => void;
 
 // ---------------------------------------------------------------- number
 
@@ -359,6 +359,9 @@ function ByTripItScreens({ onFound }: { onFound: FoundFn }) {
 }
 
 function ByGmail({ onFound }: { onFound: FoundFn }) {
+  const { flights, settings } = useStore();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const imported = useMemo(() => importedEmailIds(), [flights, settings.importedEmails]);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const pick = async (threads: { threadId: string }[]) => {
@@ -390,12 +393,12 @@ function ByGmail({ onFound }: { onFound: FoundFn }) {
       return;
     }
     onFound(all, 'gmail', [failed ? `${failed} of ${threads.length} emails could not be read.` : '',
-      'Tip: open a flight and tap “Send to TripIt” to add it to your TripIt too.'].filter(Boolean).join(' '));
+      'Tip: open a flight and tap “Send to TripIt” to add it to your TripIt too.'].filter(Boolean).join(' '), threads.map((t) => t.threadId));
   };
   return (
     <div className="stack">
       <p className="small muted">Finds your flight and hotel booking emails (Let’s Tour, Aegean and all airlines and hotels) and shows each trip’s route and dates. Tick the emails you want (or “Select all flights”) and import them together. The first time, claude.ai asks you to allow Gmail for this page.</p>
-      <GmailPicker describe searchLabel="Find my booking emails" pickLabel="Import" busy={busy} onPickMany={pick} />
+      <GmailPicker describe imported={imported} searchLabel="Find my booking emails" pickLabel="Import" busy={busy} onPickMany={pick} />
       {error && <div className="notice error small" role="alert">{error}</div>}
       <How title="Also add them to TripIt">
         <ol><li>Open an imported flight and tap <b>Send to TripIt</b>. Its booking email is forwarded from your Gmail to {TRIPIT_ADDRESS}.</li><li>TripIt only accepts emails from addresses on your TripIt account: check TripIt → Settings → Email addresses.</li></ol>
@@ -468,8 +471,8 @@ function ByCsv({ onFound }: { onFound: FoundFn }) {
 
 // ---------------------------------------------------------------- review
 
-function Review({ drafts, source, note, onCancel, onSaved }: {
-  drafts: FlightDraft[]; source: FlightSource; note?: string; onCancel: () => void; onSaved: (id?: string) => void;
+function Review({ drafts, source, note, emails, onCancel, onSaved }: {
+  drafts: FlightDraft[]; source: FlightSource; note?: string; emails?: string[]; onCancel: () => void; onSaved: (id?: string) => void;
 }) {
   const valid = drafts.filter(draftIsComplete);
   const [picked, setPicked] = useState(() => new Set(valid.map((_, i) => i)));
@@ -479,6 +482,7 @@ function Review({ drafts, source, note, onCancel, onSaved }: {
     const chosen = valid.filter((_, i) => picked.has(i));
     trace('add-to-diary', { chosen: chosen.length, valid: valid.length });
     const { added, updated } = addFlights(chosen, source);
+    if (emails && chosen.length) markEmailsImported(emails);
     toast(`${added} added${updated ? `, ${updated} updated` : ''}`);
     const only = chosen.length === 1 && getState().flights.find((f) => f.airline === chosen[0].airline && f.flightNumber === chosen[0].flightNumber && f.date === chosen[0].date);
     onSaved(only ? only.id : undefined);

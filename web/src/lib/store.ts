@@ -114,6 +114,20 @@ export function addFlights(drafts: FlightDraft[], source: Flight['source']): { a
   return { added, updated };
 }
 
+/** Remember booking emails whose flights were added, so the Gmail list can hide them. */
+export function markEmailsImported(threadIds: string[]) {
+  if (!threadIds.length) return;
+  const all = [...new Set([...(state.settings.importedEmails || []), ...threadIds])].slice(-1000);
+  saveSettings({ importedEmails: all });
+}
+
+/** Thread and message ids of emails already imported into the diary. */
+export function importedEmailIds(): Set<string> {
+  const ids = new Set(state.settings.importedEmails || []);
+  for (const f of state.flights) if (f.gmailMessageId) ids.add(f.gmailMessageId);
+  return ids;
+}
+
 export function updateFlight(id: string, patch: Partial<Flight>) {
   emit({ flights: sortFlights(state.flights.map((f) => (f.id === id ? { ...f, ...patch } : f))) });
   persist();
