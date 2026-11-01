@@ -7,6 +7,7 @@ import type { Flight, FlightDraft, Membership, Settings } from './types.ts';
 import { flightKey, sortFlights } from './flights.ts';
 import { IS_ARTIFACT } from './platform.ts';
 import { connectCloud, type CloudStore } from './cloudStore.ts';
+import { trace } from './diag.ts';
 
 export interface State {
   flights: Flight[];
@@ -47,6 +48,7 @@ export async function initStore() {
   if (IS_ARTIFACT) {
     try {
       cloud = await connectCloud();
+      trace('storage', cloud ? 'claude.ai' : 'browser (no db)');
       if (cloud) {
         const data = await cloud.load();
         emit({

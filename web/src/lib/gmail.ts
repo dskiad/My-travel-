@@ -3,6 +3,7 @@
 // turns emails sent to plans@tripit.com from a registered address into trips.
 import { IS_ARTIFACT, capability } from './platform.ts';
 import type { Flight } from './types.ts';
+import { getState } from './store.ts';
 
 export const TRIPIT_ADDRESS = 'plans@tripit.com';
 const SERVER = 'Gmail';
@@ -36,6 +37,7 @@ export function gmailErrorText(e: unknown): string {
     case 'approval_required': return 'This needs your approval. Tap the button again and choose Allow when claude.ai asks.';
     case 'blocked_by_policy': return 'Your organization doesn’t allow this page to use Gmail.';
     case 'server_unavailable': return 'Gmail didn’t answer just now. Try again in a minute.';
+    case 'wrong_mailbox': return err.message || 'Wrong Gmail account connected.';
     case 'tool_error': return `Gmail reported a problem: ${err.message || 'unknown error'}`;
     default: return err.message ? `Gmail request failed: ${err.message}` : 'Gmail request failed. Try again in a minute.';
   }
@@ -68,9 +70,13 @@ function toThread(t: Record<string, unknown>): MailThread | null {
 
 // Gmail's own travel category, or any email that talks about a flight booking
 // (subject or body), including travel-agency itineraries.
+// Travel agents and airlines the traveller books with come first, then any
+// airline or hotel reservation (English or Greek wording).
+export const TRUSTED_SENDERS = ['letstour.gr', 'aegeanair.com', 'aegean.com', 'olympicair.com'];
 export const BOOKING_QUERY =
-  '(category:reservations OR ((flight OR flights OR airline OR airways OR "e-ticket" OR eticket OR itinerary OR "boarding pass" OR PNR OR "booking reference") ' +
-  '(confirmation OR booking OR itinerary OR ticket OR reservation OR "check-in"))) -in:sent newer_than:2y';
+  '(' + TRUSTED_SENDERS.map((d) => `from:${d}`).join(' OR ') + ' OR category:reservations OR from:booking.com OR ' +
+  '((flight OR flights OR airline OR airlines OR airways OR "e-ticket" OR eticket OR itinerary OR "boarding pass" OR PNR OR "record locator" OR hotel OR stay OR πτήση OR ξενοδοχείο) ' +
+  '(confirmation OR confirmed OR booking OR itinerary OR ticket OR reservation OR "check-in" OR receipt OR κράτηση OR επιβεβαίωση))) -in:sent newer_than:3y';
 
 export const LOYALTY_QUERY =
   '("Miles+Bonus" OR "Miles & More" OR "Flying Blue" OR "Executive Club" OR "British Airways Club" OR AAdvantage OR SkyMiles OR MileagePlus OR ' +
@@ -79,9 +85,38 @@ export const LOYALTY_QUERY =
 
 /** Booking emails, newest first. `query` narrows it (e.g. a PNR). */
 export async function searchBookingEmails(query = BOOKING_QUERY): Promise<MailThread[]> {
-  const payload = await call('search_threads', { query, pageSize: 20, view: 'THREAD_VIEW_MINIMAL' });
+  await checkMailbox();
+  const payload = await call('search_threads', { query, pageSize: 40, view: 'THREAD_VIEW_SUMMARY' });
   const threads = (Array.isArray(payload.threads) ? payload.threads : []) as Record<string, unknown>[];
   return threads.map(toThread).filter((t): t is MailThread => Boolean(t && t.messageId));
+}
+
+/** The address of the Gmail inbox the viewer connected (the sender of their sent mail). */
+export async function mailboxAddress(): Promise<string> {
+  try {
+    const payload = await call('search_threads', { query: 'in:sent', pageSize: 1, view: 'THREAD_VIEW_METADATA_ONLY' });
+    const t = (Array.isArray(payload.threads) ? payload.threads[0] : null) as Record<string, unknown> | null;
+    const m = (Array.isArray(t?.messages) ? (t!.messages as RawMessage[])[0] : null) || {};
+    return (str(m.sender).match(/[^\s<>"]+@[^\s<>"]+/) || [''])[0].toLowerCase();
+  } catch { return ''; }
+}
+
+export const CONNECTORS_URL = 'https://claude.ai/customize/connectors';
+
+/** The inbox the viewer chose in Profile; searches anywhere else are refused. */
+export const requiredMailbox = () => (getState().settings.gmailAccount || '').trim().toLowerCase();
+
+async function checkMailbox() {
+  const want = requiredMailbox();
+  if (!want) return;
+  const have = await mailboxAddress();
+  if (have === want) return;
+  throw {
+    code: 'wrong_mailbox',
+    message: have
+      ? `The Gmail connected to Claude is ${have}, but this app only searches ${want}. In claude.ai → Connectors, disconnect Gmail and connect it again with ${want}.`
+      : `Could not confirm that the connected Gmail is ${want}, so nothing was searched. In claude.ai → Connectors, connect Gmail with ${want}.`,
+  };
 }
 
 /** Emails most likely to be this flight's booking: by PNR, then flight number. */

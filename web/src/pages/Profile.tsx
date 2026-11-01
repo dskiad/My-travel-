@@ -62,6 +62,13 @@ export default function Profile() {
             </select>
           </Field>
         </div>
+        {IS_ARTIFACT && (
+          <Field label="Gmail to search">
+            <input className="input" type="email" inputMode="email" autoComplete="email" value={settings.gmailAccount || ''}
+              onChange={(e) => saveSettings({ gmailAccount: e.target.value.trim() })} placeholder="you@gmail.com" />
+          </Field>
+        )}
+        {IS_ARTIFACT && <p className="tiny muted">Booking and miles searches only run in this inbox. If the Gmail connected to Claude is a different account, nothing is searched.</p>}
         <Field label="Home airport"><AirportInput value={settings.homeAirport} onChange={(homeAirport) => saveSettings({ homeAirport })} placeholder="ATH" /></Field>
         <p className="tiny muted">
           Entry rules in briefings use your passport. Lounge advice uses your cabin and the statuses in your <Link to="/wallet">wallet</Link>

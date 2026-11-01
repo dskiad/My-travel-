@@ -56,6 +56,8 @@ export interface Settings {
   cabin: Cabin;
   homeAirport: string;
   calendarUrl: string;
+  /** Only this Gmail inbox may be searched for bookings ('' = any). */
+  gmailAccount?: string;
 }
 
 export interface LiveSide {
