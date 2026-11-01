@@ -45,7 +45,7 @@ async function describeAll(threads: MailThread[], update: (id: string, s: MailSu
  * asks their permission), then lets them pick one email. With `describe`, each
  * email shows its route and dates (or hotel and stay) once it has been read.
  */
-export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onPick, onPickMany, busy, describe }: {
+export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onPick, onPickMany, busy, describe, imported }: {
   query?: string;
   searchLabel: string;
   pickLabel: string;
@@ -54,6 +54,8 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
   onPickMany?: (ts: MailThread[]) => void;
   busy?: string;
   describe?: boolean;
+  /** Thread or message ids already imported: hidden unless the viewer asks to see them. */
+  imported?: Set<string>;
 }) {
   const [threads, setThreads] = useState<MailThread[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,9 +65,13 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
   const [reading, setReading] = useState(false);
   const run = useRef(0);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [showDone, setShowDone] = useState(false);
+  const isDone = (t: MailThread) => !!imported && (imported.has(t.threadId) || imported.has(t.messageId));
+  const doneCount = (threads || []).filter(isDone).length;
+  const shown = (threads || []).filter((t) => showDone || !isDone(t));
   const toggle = (id: string) => setChosen((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const picked = (threads || []).filter((t) => chosen.has(t.threadId));
-  const flightIds = (threads || []).filter((t) => summaries[t.threadId]?.kind === 'flight' && !summaries[t.threadId]?.cancelled).map((t) => t.threadId);
+  const flightIds = shown.filter((t) => !isDone(t) && summaries[t.threadId]?.kind === 'flight' && !summaries[t.threadId]?.cancelled).map((t) => t.threadId);
 
   const search = async () => {
     const id = ++run.current;
@@ -81,7 +87,7 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
         for (const t of found) { const s = quickSummary(t.subject, '', t.date); if (s) first[t.threadId] = s; }
         setSummaries(first);
         setReading(true);
-        describeAll(found, (tid, s) => setSummaries((prev) => ({ ...prev, [tid]: s })), () => run.current === id)
+        describeAll(found.filter((t) => !(imported && (imported.has(t.threadId) || imported.has(t.messageId)))), (tid, s) => setSummaries((prev) => ({ ...prev, [tid]: s })), () => run.current === id)
           .finally(() => run.current === id && setReading(false));
       }
     } catch (e) {
@@ -104,10 +110,19 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
       {error && <div className="notice error small" role="alert">{error}</div>}
       {busy && <div className="notice small" role="status">{busy}</div>}
       {reading && <p className="tiny muted" role="status">Reading the emails to show routes and dates…</p>}
+      {doneCount > 0 && (
+        <p className="tiny muted" role="status">
+          ✅ {doneCount} {doneCount === 1 ? 'email is' : 'emails are'} already in your diary{showDone ? '' : ' and hidden'}.{' '}
+          <button type="button" className="linkish" onClick={() => setShowDone((v) => !v)} style={{ background: 'none', border: 0, padding: 0, color: 'var(--brand)', font: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}>
+            {showDone ? 'Hide them' : 'Show them'}
+          </button>
+        </p>
+      )}
+      {threads && threads.length > 0 && shown.length === 0 && <p className="small muted">All the booking emails found are already in your diary.</p>}
       {threads && threads.length === 0 && (
         <p className="small muted">No matching emails found. You can paste the email text under “Booking email” instead.</p>
       )}
-      {threads && threads.length > 0 && (
+      {shown.length > 0 && (
         <div className="stack" style={{ gap: 8 }}>
           {onPickMany && (
             <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -116,9 +131,10 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
               {chosen.size > 0 && <button type="button" className="btn ghost small" disabled={!!busy} onClick={() => setChosen(new Set())}>Clear</button>}
             </div>
           )}
-          {threads.map((t) => {
+          {shown.map((t) => {
             const s = summaries[t.threadId];
             const on = chosen.has(t.threadId);
+            const done = isDone(t);
             return (
               <button key={t.threadId} type="button" className="flight-row" role={onPickMany ? 'checkbox' : undefined} aria-checked={onPickMany ? on : undefined}
                 style={{ textAlign: 'left', cursor: 'pointer', opacity: s?.cancelled && !on ? 0.6 : 1, outline: on ? '2px solid var(--brand)' : undefined }}
@@ -126,6 +142,7 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
                 {onPickMany && <input type="checkbox" checked={on} readOnly tabIndex={-1} aria-hidden style={{ width: 20, height: 20, flex: 'none', accentColor: 'var(--brand)' }} />}
                 <span style={{ fontSize: '1.3rem' }}>{s ? ICON[s.kind] : '✉️'}</span>
                 <div className="r-main">
+                  {done && <span className="pill" style={{ color: 'var(--good, #15803d)', marginBottom: 4, display: 'inline-block' }}>✅ Already in your diary</span>}
                   {s && (
                     <b style={{ display: 'block' }}>
                       {s.title}{s.dates && <span className="muted" style={{ fontWeight: 500 }}> · {s.dates}</span>}

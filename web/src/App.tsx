@@ -32,7 +32,9 @@ export function App() {
     </nav>
   );
 
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // Braces matter: in the Claude app scrollTo returns a value, and React would
+  // later call that value as this effect's cleanup ("c is not a function").
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   const navigate = useNavigate();
   useEffect(() => {
     const home = () => navigate('/');
