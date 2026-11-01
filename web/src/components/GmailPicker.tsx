@@ -45,11 +45,13 @@ async function describeAll(threads: MailThread[], update: (id: string, s: MailSu
  * asks their permission), then lets them pick one email. With `describe`, each
  * email shows its route and dates (or hotel and stay) once it has been read.
  */
-export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onPick, busy, describe }: {
+export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onPick, onPickMany, busy, describe }: {
   query?: string;
   searchLabel: string;
   pickLabel: string;
-  onPick: (t: MailThread) => void;
+  onPick?: (t: MailThread) => void;
+  /** Tick several emails, then import them together. */
+  onPickMany?: (ts: MailThread[]) => void;
   busy?: string;
   describe?: boolean;
 }) {
@@ -60,10 +62,14 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
   const [summaries, setSummaries] = useState<Record<string, MailSummary>>({});
   const [reading, setReading] = useState(false);
   const run = useRef(0);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => setChosen((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const picked = (threads || []).filter((t) => chosen.has(t.threadId));
+  const flightIds = (threads || []).filter((t) => summaries[t.threadId]?.kind === 'flight' && !summaries[t.threadId]?.cancelled).map((t) => t.threadId);
 
   const search = async () => {
     const id = ++run.current;
-    setLoading(true); setError(''); setSummaries({});
+    setLoading(true); setError(''); setSummaries({}); setChosen(new Set());
     try {
       const found = await searchBookingEmails(query);
       // Emails from the traveller's own agency and airlines first.
@@ -103,11 +109,21 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
       )}
       {threads && threads.length > 0 && (
         <div className="stack" style={{ gap: 8 }}>
+          {onPickMany && (
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn ghost small" disabled={!!busy || !flightIds.length}
+                onClick={() => setChosen(new Set(flightIds))}>Select all flights ({flightIds.length})</button>
+              {chosen.size > 0 && <button type="button" className="btn ghost small" disabled={!!busy} onClick={() => setChosen(new Set())}>Clear</button>}
+            </div>
+          )}
           {threads.map((t) => {
             const s = summaries[t.threadId];
+            const on = chosen.has(t.threadId);
             return (
-              <button key={t.threadId} type="button" className="flight-row" style={{ textAlign: 'left', cursor: 'pointer', opacity: s?.cancelled ? 0.6 : 1 }}
-                disabled={!!busy} onClick={() => onPick(t)}>
+              <button key={t.threadId} type="button" className="flight-row" role={onPickMany ? 'checkbox' : undefined} aria-checked={onPickMany ? on : undefined}
+                style={{ textAlign: 'left', cursor: 'pointer', opacity: s?.cancelled && !on ? 0.6 : 1, outline: on ? '2px solid var(--brand)' : undefined }}
+                disabled={!!busy} onClick={() => (onPickMany ? toggle(t.threadId) : onPick?.(t))}>
+                {onPickMany && <input type="checkbox" checked={on} readOnly tabIndex={-1} aria-hidden style={{ width: 20, height: 20, flex: 'none', accentColor: 'var(--brand)' }} />}
                 <span style={{ fontSize: '1.3rem' }}>{s ? ICON[s.kind] : '✉️'}</span>
                 <div className="r-main">
                   {s && (
@@ -119,10 +135,16 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
                   <span className={s ? 'tiny muted' : 'small'} style={{ display: 'block', fontWeight: s ? 400 : 700 }}>{t.subject}</span>
                   <div className="r-sub">{[t.sender, shortDate(t.date)].filter(Boolean).join(' · ')}</div>
                 </div>
-                <span className="pill brand">{pickLabel}</span>
+                {!onPickMany && <span className="pill brand">{pickLabel}</span>}
               </button>
             );
           })}
+          {onPickMany && picked.length > 0 && (
+            <button type="button" className="btn primary" disabled={!!busy} onClick={() => onPickMany(picked)}
+              style={{ position: 'sticky', bottom: 12, zIndex: 5, boxShadow: '0 8px 24px rgba(0,0,0,.18)' }}>
+              {pickLabel} {picked.length} {picked.length === 1 ? 'email' : 'emails'}
+            </button>
+          )}
         </div>
       )}
     </div>
