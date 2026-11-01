@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { gmailErrorText, searchBookingEmails, BOOKING_QUERY, type MailThread } from '../lib/gmail.ts';
+import { gmailErrorText, mailboxAddress, searchBookingEmails, BOOKING_QUERY, CONNECTORS_URL, type MailThread } from '../lib/gmail.ts';
 
 function shortDate(raw: string) {
   const d = new Date(raw);
@@ -20,11 +20,13 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
   const [threads, setThreads] = useState<MailThread[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mailbox, setMailbox] = useState('');
 
   const search = async () => {
     setLoading(true); setError('');
     try {
       setThreads(await searchBookingEmails(query));
+      mailboxAddress().then(setMailbox);
     } catch (e) {
       setError(gmailErrorText(e));
     } finally {
@@ -37,6 +39,11 @@ export function GmailPicker({ query = BOOKING_QUERY, searchLabel, pickLabel, onP
       <button type="button" className="btn primary" onClick={search} disabled={loading || !!busy}>
         {loading ? 'Searching your Gmail…' : threads ? 'Search again' : searchLabel}
       </button>
+      {mailbox && (
+        <p className="tiny muted" role="status">
+          Searching <b>{mailbox}</b>. Wrong inbox? In <a href={CONNECTORS_URL} target="_blank" rel="noreferrer">claude.ai → Connectors</a> disconnect Gmail and connect it again with the right Google account.
+        </p>
+      )}
       {error && <div className="notice error small" role="alert">{error}</div>}
       {busy && <div className="notice small" role="status">{busy}</div>}
       {threads && threads.length === 0 && (

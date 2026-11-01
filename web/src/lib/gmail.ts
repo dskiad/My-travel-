@@ -84,6 +84,18 @@ export async function searchBookingEmails(query = BOOKING_QUERY): Promise<MailTh
   return threads.map(toThread).filter((t): t is MailThread => Boolean(t && t.messageId));
 }
 
+/** The address of the Gmail inbox the viewer connected (the sender of their sent mail). */
+export async function mailboxAddress(): Promise<string> {
+  try {
+    const payload = await call('search_threads', { query: 'in:sent', pageSize: 1, view: 'THREAD_VIEW_METADATA_ONLY' });
+    const t = (Array.isArray(payload.threads) ? payload.threads[0] : null) as Record<string, unknown> | null;
+    const m = (Array.isArray(t?.messages) ? (t!.messages as RawMessage[])[0] : null) || {};
+    return (str(m.sender).match(/[^\s<>"]+@[^\s<>"]+/) || [''])[0].toLowerCase();
+  } catch { return ''; }
+}
+
+export const CONNECTORS_URL = 'https://claude.ai/customize/connectors';
+
 /** Emails most likely to be this flight's booking: by PNR, then flight number. */
 export function queryForFlight(f: Pick<Flight, 'pnr' | 'airline' | 'flightNumber'>): string {
   const code = `${f.airline}${f.flightNumber}`;
