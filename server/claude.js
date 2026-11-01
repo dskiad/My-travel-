@@ -180,7 +180,13 @@ function collectSources(content) {
   return [...seen.values()];
 }
 
-export async function buildBriefing({ flight, liveStatus, passport, cabin, status }) {
+const GREEK_BRIEFING = 'LANGUAGE: Write every text value in Greek (Ελληνικά). Keep in English only the common travel terms a traveller sees on signs and apps ' +
+  '(for example Gate, Terminal, Lounge, Check-in, Boarding, Boarding pass, Security, Passport control, Visa, ETIAS, Metro, Taxi, Uber, Bolt, Fast Track, Duty free) ' +
+  'and right after each one put the closest Greek word in parentheses, for example "Gate (Πύλη)", "Lounge (Αίθουσα αναμονής)", "Visa (Θεώρηση)". ' +
+  'Names of airports, lounges, airlines, stations and companies stay as they are. JSON keys and the fixed values ' +
+  '(yes/no/conditional, strike/weather/airport/airline/other, info/warning/critical, train/metro/bus/taxi/rideshare/shuttle/other) stay exactly in English.';
+
+export async function buildBriefing({ flight, liveStatus, passport, cabin, status, language = 'en' }) {
   const now = new Date().toISOString();
   const facts = {
     flight: flight.flight,
@@ -202,7 +208,7 @@ ${liveStatus
     ? `Live flight status from the flight-data provider (authoritative for terminal, gate and times):\n${JSON.stringify(liveStatus, null, 2)}`
     : 'No live flight-status feed is available, so look up the current status, terminal and gate yourself.'}
 
-Prepare the briefing.`;
+Prepare the briefing.${language === 'el' ? `\n\n${GREEK_BRIEFING}` : ''}`;
 
   const messages = [{ role: 'user', content: userText }];
   const pausedContent = [];

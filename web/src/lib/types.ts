@@ -60,6 +60,8 @@ export interface Settings {
   gmailAccount?: string;
   /** Gmail threads whose flights are already in the diary (newest last). */
   importedEmails?: string[];
+  /** Language of travel briefings: 'el' Greek, 'en' English (default). */
+  language?: 'el' | 'en';
 }
 
 export interface LiveSide {
@@ -102,4 +104,6 @@ export interface Briefing {
   generatedAt: string;
   /** Prepared without live web research (claude.ai page version). */
   offline?: boolean;
+  /** Language the briefing was written in. */
+  lang?: 'el' | 'en';
 }

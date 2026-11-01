@@ -69,12 +69,21 @@ export function getFlightStatus(f: Flight) {
   return request<{ status: LiveStatus | null }>('/api/flight-status', flightBody(f));
 }
 
-export async function getBriefing(f: Flight, passport: string, loyaltyStatus: string) {
+/** Greek briefings: Greek text, common travel terms in English with the Greek word in brackets. */
+export const GREEK_BRIEFING = 'LANGUAGE: Write every text value in Greek (Ελληνικά). Keep in English only the common travel terms a traveller sees on signs and apps ' +
+  '(for example Gate, Terminal, Lounge, Check-in, Boarding, Boarding pass, Security, Passport control, Visa, ETIAS, Metro, Taxi, Uber, Bolt, Fast Track, Duty free) ' +
+  'and right after each one put the closest Greek word in parentheses, for example "Gate (Πύλη)", "Lounge (Αίθουσα αναμονής)", "Visa (Θεώρηση)". ' +
+  'Names of airports, lounges, airlines, stations and companies stay as they are. JSON keys and the fixed values ' +
+  '(yes/no/conditional, strike/weather/airport/airline/other, info/warning/critical, train/metro/bus/taxi/rideshare/shuttle/other) stay exactly in English.';
+
+export async function getBriefing(f: Flight, passport: string, loyaltyStatus: string, language: 'el' | 'en' = 'en') {
   if (IS_ARTIFACT) {
-    const briefing = await askClaudeJson<Briefing>(briefingPrompt(f, passport, loyaltyStatus));
-    return { briefing: { ...briefing, sources: [], generatedAt: new Date().toISOString(), offline: true } as Briefing, liveStatus: null };
+    const prompt = briefingPrompt(f, passport, loyaltyStatus) + (language === 'el' ? `\n\n${GREEK_BRIEFING}` : '');
+    const briefing = await askClaudeJson<Briefing>(prompt);
+    return { briefing: { ...briefing, sources: [], generatedAt: new Date().toISOString(), offline: true, lang: language } as Briefing, liveStatus: null };
   }
-  return request<{ briefing: Briefing; liveStatus: LiveStatus | null }>('/api/briefing', { ...flightBody(f), passport, loyaltyStatus });
+  const res = await request<{ briefing: Briefing; liveStatus: LiveStatus | null }>('/api/briefing', { ...flightBody(f), passport, loyaltyStatus, language });
+  return { ...res, briefing: { ...res.briefing, lang: language } };
 }
 
 function briefingPrompt(f: Flight, passport: string, status: string) {
