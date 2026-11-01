@@ -361,24 +361,41 @@ function ByTripItScreens({ onFound }: { onFound: FoundFn }) {
 function ByGmail({ onFound }: { onFound: FoundFn }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const pick = async (threadId: string) => {
-    setError(''); setBusy('Reading the email…');
-    try {
-      const { text, messageId } = await emailText(threadId);
-      setBusy('Finding the flights in it…');
-      const res = await readDocument({ text });
-      onFound(res.flights.map((f) => ({ ...f, gmailMessageId: messageId, source: 'gmail' as const })), 'gmail',
-        `Tip: open a flight and tap “Send to TripIt” to add it to your TripIt too.`);
-    } catch (e) {
-      setError((e as { code?: string }).code ? gmailErrorText(e) : (e as Error).message);
-    } finally {
-      setBusy('');
+  const pick = async (threads: { threadId: string }[]) => {
+    setError('');
+    const all: FlightDraft[] = [];
+    const seen = new Set<string>();
+    let failed = 0;
+    let firstError: unknown;
+    for (const [i, t] of threads.entries()) {
+      setBusy(threads.length > 1 ? `Reading email ${i + 1} of ${threads.length}…` : 'Reading the email…');
+      try {
+        const { text, messageId } = await emailText(t.threadId);
+        const res = await readDocument({ text });
+        for (const f of res.flights) {
+          // The same flight often appears in several emails (booking, ticket, check-in).
+          const key = `${f.airline}${f.flightNumber}-${f.date}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          all.push({ ...f, gmailMessageId: messageId, source: 'gmail' as const });
+        }
+      } catch (e) {
+        failed++; firstError ??= e;
+      }
     }
+    setBusy('');
+    trace('gmail-import', { emails: threads.length, flights: all.length, failed });
+    if (!all.length && firstError) {
+      setError((firstError as { code?: string }).code ? gmailErrorText(firstError) : (firstError as Error).message);
+      return;
+    }
+    onFound(all, 'gmail', [failed ? `${failed} of ${threads.length} emails could not be read.` : '',
+      'Tip: open a flight and tap “Send to TripIt” to add it to your TripIt too.'].filter(Boolean).join(' '));
   };
   return (
     <div className="stack">
-      <p className="small muted">Finds your flight and hotel booking emails (Let’s Tour, Aegean and all airlines and hotels) and shows each trip’s route and dates. Nothing is read until you pick one, and the first time claude.ai asks you to allow Gmail for this page.</p>
-      <GmailPicker describe searchLabel="Find my booking emails" pickLabel="Import" busy={busy} onPick={(t) => pick(t.threadId)} />
+      <p className="small muted">Finds your flight and hotel booking emails (Let’s Tour, Aegean and all airlines and hotels) and shows each trip’s route and dates. Tick the emails you want (or “Select all flights”) and import them together. The first time, claude.ai asks you to allow Gmail for this page.</p>
+      <GmailPicker describe searchLabel="Find my booking emails" pickLabel="Import" busy={busy} onPickMany={pick} />
       {error && <div className="notice error small" role="alert">{error}</div>}
       <How title="Also add them to TripIt">
         <ol><li>Open an imported flight and tap <b>Send to TripIt</b>. Its booking email is forwarded from your Gmail to {TRIPIT_ADDRESS}.</li><li>TripIt only accepts emails from addresses on your TripIt account: check TripIt → Settings → Email addresses.</li></ol>
