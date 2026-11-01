@@ -8,7 +8,7 @@ import { GmailPicker } from '../components/GmailPicker.tsx';
 import { forwardToTripIt, gmailErrorText, queryForFlight, TRIPIT_ADDRESS } from '../lib/gmail.ts';
 import { deleteFlight, updateFlight, useStore } from '../lib/store.ts';
 import { isPast } from '../lib/flights.ts';
-import { airport, airlineName, countryName, flagEmoji } from '../lib/geo.ts';
+import { airport, airlineIcao, airlineName, countryName, flagEmoji } from '../lib/geo.ts';
 import { forecast, getBriefing, getFlightStatus, weatherIcon, type DayWeather } from '../lib/api.ts';
 import { membershipsForAirline, statusSummary } from '../lib/loyalty.ts';
 import type { Briefing, Cabin, Flight } from '../lib/types.ts';
@@ -144,6 +144,8 @@ export default function FlightDetail() {
           </div>
         )}
 
+        {upcoming && <LiveLinks flight={flight} el={settings.language === 'el'} />}
+
         {IS_ARTIFACT && <TripItCard flight={flight} />}
 
         <div className="row">
@@ -236,6 +238,39 @@ const EL_VALUE: Record<string, string> = {
   yes: 'Ναι', no: 'Όχι', conditional: 'Με προϋποθέσεις', unknown: 'άγνωστο',
   strike: 'Απεργία', weather: 'Καιρός', airport: 'Αεροδρόμιο', airline: 'Αεροπορική', other: 'Άλλο',
 };
+
+// The airline's own status page, where we know it.
+const AIRLINE_STATUS: Record<string, string> = {
+  A3: 'https://en.aegeanair.com/travel-info/flight-status/', OA: 'https://en.aegeanair.com/travel-info/flight-status/',
+  LH: 'https://www.lufthansa.com/xx/en/flight-status', LX: 'https://www.swiss.com/xx/en/prepare/flight-status',
+  OS: 'https://www.austrian.com/xx/en/flight-status', KL: 'https://www.klm.com/information/flight-status',
+  AF: 'https://wwws.airfrance.us/information/flight-status', BA: 'https://www.britishairways.com/travel/flightstatus/public/en_gb',
+  TK: 'https://www.turkishairlines.com/en-int/flights/flight-status/', AZ: 'https://www.ita-airways.com/en_us/fly-ita/flight-status.html',
+  UA: 'https://www.united.com/en/us/flightstatus', EK: 'https://www.emirates.com/english/manage-booking/flight-status/',
+};
+
+/** Live status lives on other websites (the claude.ai page cannot fetch it): one tap opens it. */
+function LiveLinks({ flight, el }: { flight: Flight; el: boolean }) {
+  const code = `${flight.airline}${flight.flightNumber}`;
+  const icao = airlineIcao(flight.airline);
+  const links = [
+    { label: 'Google', href: `https://www.google.com/search?q=${encodeURIComponent(`${flight.airline} ${flight.flightNumber} flight status`)}` },
+    { label: 'Flightradar24', href: `https://www.flightradar24.com/data/flights/${code.toLowerCase()}` },
+    icao && { label: 'FlightAware', href: `https://www.flightaware.com/live/flight/${icao}${flight.flightNumber}` },
+    AIRLINE_STATUS[flight.airline] && { label: airlineName(flight.airline), href: AIRLINE_STATUS[flight.airline] },
+  ].filter(Boolean) as { label: string; href: string }[];
+  return (
+    <section className="card stack" style={{ gap: 8 }}>
+      <h2 style={{ margin: 0 }}>{el ? '📡 Live (ζωντανή) κατάσταση πτήσης' : '📡 Live flight status'}</h2>
+      <p className="tiny muted" style={{ margin: 0 }}>
+        {el ? `Gate (Πύλη), Terminal (Τερματικός σταθμός) και καθυστερήσεις για την ${flight.airline} ${flight.flightNumber}, ενημερωμένα τώρα:` : `Gate, terminal and delays for ${flight.airline} ${flight.flightNumber}, up to the minute:`}
+      </p>
+      <div className="row" style={{ gap: 8 }}>
+        {links.map((l) => <a key={l.label} className="btn sm" href={l.href} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>)}
+      </div>
+    </section>
+  );
+}
 
 function BriefingView({ briefing: b, passport, el = false }: { briefing: Briefing; passport: string; el?: boolean }) {
   const e = b.entryRequirements || {};

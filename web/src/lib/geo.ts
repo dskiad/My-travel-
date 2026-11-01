@@ -84,6 +84,9 @@ export function resolveAirline(text?: string): string | undefined {
 
 export const airport = (code?: string): Airport | undefined => (code ? airports[code.toUpperCase()] : undefined);
 
+/** ICAO code of an airline (A3 → AEE), used by flight trackers. */
+export const airlineIcao = (code: string): string => airlineNames[code]?.[2] || '';
+
 export function airlineName(code: string): string {
   return AIRLINES[code]?.name || airlineNames[code]?.[0] || code;
 }
